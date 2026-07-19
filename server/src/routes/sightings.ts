@@ -210,6 +210,9 @@ export async function sightingRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>('/api/sightings/:id', { preHandler: app.requireMember }, async (req, reply) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return reply.code(400).send({ error: 'Invalid id' });
+    const row = db.select().from(schema.sightings).where(eq(schema.sightings.id, id)).get();
+    if (!row) return reply.code(404).send({ error: 'Not found' });
+    await removeFiles([row.pathOriginal, row.pathMain, row.pathAi, row.pathThumb]);
     db.update(schema.sightings)
       .set({ deletedAt: new Date().toISOString() })
       .where(eq(schema.sightings.id, id))
