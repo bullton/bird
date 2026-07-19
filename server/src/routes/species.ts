@@ -35,11 +35,20 @@ export async function speciesRoutes(app: FastifyInstance) {
     const conds: any[] = [];
     if (search) {
       const like_ = `%${search}%`;
-      conds.push(or(
+      const nameConds = or(
         like(schema.species.chineseName, like_),
         like(schema.species.scientificName, like_),
         like(schema.species.englishName, like_),
-      )!);
+      );
+      const aliasMatch = db.select({ speciesId: schema.speciesAliases.speciesId })
+        .from(schema.speciesAliases)
+        .where(eq(schema.speciesAliases.aliasName, search))
+        .get();
+      if (aliasMatch) {
+        conds.push(or(nameConds, eq(schema.species.id, aliasMatch.speciesId))!);
+      } else {
+        conds.push(nameConds);
+      }
     }
     if (family) conds.push(eq(schema.species.familyName, family));
     if (order) conds.push(eq(schema.species.orderName, order));

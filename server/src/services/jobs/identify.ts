@@ -1,13 +1,11 @@
 import { readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { db, schema } from '../../db/client.js';
-import { eq } from 'drizzle-orm';
+import { eq, or, like } from 'drizzle-orm';
 import { config } from '../../config.js';
 import { callIdentify, callGenerateDescription } from '../ai-client.js';
+import type { Candidate } from '../ai-client.js';
 
-/**
- * 识别成功后清理 AI 图片文件，节省磁盘
- */
 export async function cleanupAiImage(sightingId: number) {
   const row = db.select({ pathAi: schema.sightings.pathAi })
     .from(schema.sightings)
@@ -18,7 +16,6 @@ export async function cleanupAiImage(sightingId: number) {
   try {
     await unlink(abs);
   } catch {
-    // 文件不存在也无所谓
   }
   db.update(schema.sightings)
     .set({ pathAi: '' })
@@ -26,11 +23,65 @@ export async function cleanupAiImage(sightingId: number) {
     .run();
 }
 
+function normSciName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function findSpeciesByCandidate(c: Candidate): { id: number } | null {
+  if (!c.scientific_name) return null;
+  const norm = normSciName(c.scientific_name);
+
+  // 1. 按学名精确匹配（忽略大小写）
+  const bySciName = db.select({ id: schema.species.id })
+    .from(schema.species)
+    .where(eq(schema.species.scientificName, c.scientific_name))
+    .get();
+  if (bySciName) return bySciName;
+
+  // 2. 按中文名在别名表中查找
+  if (c.chinese_name) {
+    const alias = db.select({ speciesId: schema.speciesAliases.speciesId })
+      .from(schema.speciesAliases)
+      .where(eq(schema.speciesAliases.aliasName, c.chinese_name))
+      .get();
+    if (alias) {
+      // 确认对应物种的学名（避免别名指向了错误物种）
+      const sp = db.select({ id: schema.species.id, scientificName: schema.species.scientificName })
+        .from(schema.species)
+        .where(eq(schema.species.id, alias.speciesId))
+        .get();
+      if (sp) return { id: sp.id };
+    }
+
+    // 3. 按中文名直接匹配（兼容旧数据）
+    const byChinese = db.select({ id: schema.species.id })
+      .from(schema.species)
+      .where(eq(schema.species.chineseName, c.chinese_name))
+      .get();
+    if (byChinese) return byChinese;
+  }
+
+  return null;
+}
+
+function addAliasesForSpecies(speciesId: number, chineseName: string | null) {
+  if (!chineseName) return;
+  // 插入中文别名（去重）
+  try {
+    db.insert(schema.speciesAliases).values({
+      speciesId,
+      aliasName: chineseName,
+      language: 'zh',
+    }).run();
+  } catch {
+    // 忽略唯一约束冲突
+  }
+}
+
 export async function processIdentify(sightingId: number, _taskId: number) {
   const sighting = db.select().from(schema.sightings).where(eq(schema.sightings.id, sightingId)).get();
   if (!sighting) throw new Error('sighting not found');
 
-  // AI 图已被清理过（之前成功了），则用 main 图重新识别
   const relPath = sighting.pathAi || sighting.pathMain;
   const imageAbs = path.resolve(config.photosDir, relPath);
   const buffer = await readFile(imageAbs);
@@ -51,10 +102,9 @@ export async function processIdentify(sightingId: number, _taskId: number) {
     && !invalidNames.includes((top.chinese_name ?? '').toLowerCase());
 
   if (isValidTop) {
-    speciesName = top!.chinese_name ?? top!.scientific_name ?? null;
-    const existing = db.select().from(schema.species).where(eq(schema.species.scientificName, top!.scientific_name!)).get();
-    if (existing) {
-      speciesId = existing.id;
+    const matched = findSpeciesByCandidate(top);
+    if (matched) {
+      speciesId = matched.id;
     } else {
       const inserted = db.insert(schema.species).values({
         scientificName: top!.scientific_name!,
@@ -68,8 +118,10 @@ export async function processIdentify(sightingId: number, _taskId: number) {
         createdVia: 'ai',
       }).returning({ id: schema.species.id }).get();
       speciesId = inserted.id;
+      addAliasesForSpecies(speciesId, top!.chinese_name ?? null);
       await tryGenerateDescription(speciesId, top!.scientific_name!, top!.chinese_name ?? '');
     }
+    speciesName = top!.chinese_name ?? top!.scientific_name ?? null;
   }
 
   const confidenceMax = top?.confidence ?? null;
@@ -88,7 +140,6 @@ export async function processIdentify(sightingId: number, _taskId: number) {
     status,
   }).where(eq(schema.sightings.id, sightingId)).run();
 
-  // 识别成功后清理 AI 图片
   if (status === 'confirmed' || status === 'corrected') {
     await cleanupAiImage(sightingId);
   }
