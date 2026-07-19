@@ -44,29 +44,31 @@ export async function processIdentify(sightingId: number, _taskId: number) {
   let speciesName: string | null = null;
 
   const top = result.candidates[0];
-  if (top) {
-    speciesName = top.chinese_name ?? top.scientific_name ?? null;
-    const existing = top.scientific_name
-      ? db.select().from(schema.species).where(eq(schema.species.scientificName, top.scientific_name)).get()
-      : null;
+  const invalidNames = ['indeterminate', 'unidentifiable', 'unknown', '无法识别', '未能识别'];
+  const isValidTop = top
+    && top.scientific_name
+    && !invalidNames.includes(top.scientific_name.toLowerCase())
+    && !invalidNames.includes((top.chinese_name ?? '').toLowerCase());
+
+  if (isValidTop) {
+    speciesName = top!.chinese_name ?? top!.scientific_name ?? null;
+    const existing = db.select().from(schema.species).where(eq(schema.species.scientificName, top!.scientific_name!)).get();
     if (existing) {
       speciesId = existing.id;
     } else {
       const inserted = db.insert(schema.species).values({
-        scientificName: top.scientific_name || top.chinese_name || 'Unknown',
-        chineseName: top.chinese_name ?? null,
-        englishName: top.english_name ?? null,
-        orderName: top.order_name ?? null,
-        familyName: top.family_name ?? null,
-        genus: top.genus ?? null,
-        conservation: top.conservation ?? null,
-        bodyLengthCm: top.body_length_cm ?? null,
+        scientificName: top!.scientific_name!,
+        chineseName: top!.chinese_name ?? null,
+        englishName: top!.english_name ?? null,
+        orderName: top!.order_name ?? null,
+        familyName: top!.family_name ?? null,
+        genus: top!.genus ?? null,
+        conservation: top!.conservation ?? null,
+        bodyLengthCm: top!.body_length_cm ?? null,
         createdVia: 'ai',
       }).returning({ id: schema.species.id }).get();
       speciesId = inserted.id;
-      if (top.scientific_name) {
-        await tryGenerateDescription(speciesId, top.scientific_name, top.chinese_name ?? '');
-      }
+      await tryGenerateDescription(speciesId, top!.scientific_name!, top!.chinese_name ?? '');
     }
   }
 
