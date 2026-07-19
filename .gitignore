@@ -45,3 +45,8 @@ desktop.ini
 # backups
 backups/
 *.bak
+
+# local deploy scripts
+deploy*.py
+deploy*.bat
+deploy*.sh
