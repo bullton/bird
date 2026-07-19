@@ -72,7 +72,7 @@ export async function sightingRoutes(app: FastifyInstance) {
       }
 
       const inserted = db.insert(schema.sightings).values({
-        userId: req.user!.id,
+        userId: req.authUser!.id,
         pathOriginal: processed.originalRel,
         pathMain: processed.mainRel,
         pathAi: processed.aiRel,
@@ -221,7 +221,7 @@ export async function sightingRoutes(app: FastifyInstance) {
         const aiTop = row.identificationJson ? (JSON.parse(row.identificationJson)?.[0]?.scientific_name ?? null) : null;
         db.insert(schema.identificationCorrections).values({
           sightingId: id,
-          userId: req.user!.id,
+          userId: req.authUser!.id,
           predictedTop: aiTop,
           correctedTo: parsed.data.speciesId,
           confidence: row.confidenceMax ?? null,
@@ -300,7 +300,7 @@ export async function sightingRoutes(app: FastifyInstance) {
     if (correctionType !== 'confirmed') {
       db.insert(schema.identificationCorrections).values({
         sightingId: id,
-        userId: req.user!.id,
+        userId: req.authUser!.id,
         predictedTop: aiTop,
         correctedTo: targetSpeciesId,
         confidence: row.confidenceMax ?? null,

@@ -9,12 +9,6 @@ export interface AuthUser {
   mustChangePassword: boolean;
 }
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: AuthUser;
-  }
-}
-
 export async function attachUser(req: FastifyRequest, reply: FastifyReply) {
   try {
     await req.jwtVerify<{ sub: number }>();
@@ -32,7 +26,7 @@ export async function attachUser(req: FastifyRequest, reply: FastifyReply) {
       .where(eq(schema.users.id, userId))
       .get();
     if (!row || !row.isActive) return;
-    req.user = {
+    req.authUser = {
       id: row.id,
       username: row.username,
       role: row.role as 'admin' | 'member',
@@ -45,7 +39,7 @@ export async function attachUser(req: FastifyRequest, reply: FastifyReply) {
 
 export function requireAuth() {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!req.user) {
+    if (!req.authUser) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
   };
@@ -53,10 +47,10 @@ export function requireAuth() {
 
 export function requireMember() {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!req.user) {
+    if (!req.authUser) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
-    if (req.user.mustChangePassword) {
+    if (req.authUser.mustChangePassword) {
       return reply.code(403).send({ error: 'Must change password first', code: 'PASSWORD_CHANGE_REQUIRED' });
     }
   };
@@ -64,13 +58,13 @@ export function requireMember() {
 
 export function requireAdmin() {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!req.user) {
+    if (!req.authUser) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
-    if (req.user.role !== 'admin') {
+    if (req.authUser.role !== 'admin') {
       return reply.code(403).send({ error: 'Forbidden' });
     }
-    if (req.user.mustChangePassword) {
+    if (req.authUser.mustChangePassword) {
       return reply.code(403).send({ error: 'Must change password first', code: 'PASSWORD_CHANGE_REQUIRED' });
     }
   };

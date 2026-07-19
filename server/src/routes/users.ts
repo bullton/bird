@@ -82,7 +82,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>('/api/users/:id', { preHandler: app.requireAdmin }, async (req, reply) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return reply.code(400).send({ error: 'Invalid id' });
-    if (id === req.user!.id) return reply.code(400).send({ error: '不能删除自己' });
+    if (id === req.authUser!.id) return reply.code(400).send({ error: '不能删除自己' });
     const target = db.select().from(schema.users).where(eq(schema.users.id, id)).get();
     if (!target) return reply.code(404).send({ error: 'Not found' });
     if (target.role === 'admin') {

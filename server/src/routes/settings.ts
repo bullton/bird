@@ -49,7 +49,7 @@ export async function settingsRoutes(app: FastifyInstance) {
 
     db.update(schema.settings).set({
       value: valueToStore,
-      updatedBy: req.user!.id,
+      updatedBy: req.authUser!.id,
       updatedAt: new Date().toISOString(),
     }).where(eq(schema.settings.key, key)).run();
 

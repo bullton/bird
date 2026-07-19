@@ -129,7 +129,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/auth/me', async (req, reply) => {
-    if (!req.user) return reply.code(401).send({ error: 'Unauthorized' });
+    if (!req.authUser) return reply.code(401).send({ error: 'Unauthorized' });
     const row = db
       .select({
         id: schema.users.id,
@@ -139,7 +139,7 @@ export async function authRoutes(app: FastifyInstance) {
         mustChangePassword: schema.users.mustChangePassword,
       })
       .from(schema.users)
-      .where(eq(schema.users.id, req.user.id))
+      .where(eq(schema.users.id, req.authUser.id))
       .get();
     if (!row) return reply.code(401).send({ error: 'Unauthorized' });
     return {
@@ -152,7 +152,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/auth/change-password', async (req, reply) => {
-    if (!req.user) return reply.code(401).send({ error: 'Unauthorized' });
+    if (!req.authUser) return reply.code(401).send({ error: 'Unauthorized' });
     const parsed = changePasswordSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: 'Invalid input' });
@@ -161,7 +161,7 @@ export async function authRoutes(app: FastifyInstance) {
     const row = db
       .select()
       .from(schema.users)
-      .where(eq(schema.users.id, req.user.id))
+      .where(eq(schema.users.id, req.authUser.id))
       .get();
     if (!row) return reply.code(401).send({ error: 'Unauthorized' });
     const ok = await verifyPassword(oldPassword, row.passwordHash);
