@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Card, Descriptions, Typography, Skeleton, Empty, Tag, Space, Button, Input, App, Divider } from 'antd';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Card, Descriptions, Typography, Skeleton, Empty, Tag, Space, Button, Input, App, Divider, Modal } from 'antd';
 import { speciesApi, sightingsApi } from '../api';
 import { useAuth } from '../stores/auth';
-import { Edit3, Save, X } from 'lucide-react';
+import { Edit3, Save, X, Image as ImageIcon } from 'lucide-react';
 import dayjs from 'dayjs';
 
 export function SpeciesDetail() {
@@ -13,6 +13,7 @@ export function SpeciesDetail() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const qc = useQueryClient();
 
   const { data: sp, isLoading } = useQuery({
     queryKey: ['species', speciesId],
@@ -28,6 +29,8 @@ export function SpeciesDetail() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<any>({});
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
 
   function startEdit() {
     if (!sp) return;
@@ -57,6 +60,40 @@ export function SpeciesDetail() {
       setEditing(false);
     } catch (e: any) {
       message.error(e.message || '保存失败');
+    }
+  }
+
+  async function setCoverPhotoUrl(thumbUrl: string) {
+    const pathThumb = thumbUrl.replace('/photos/', '');
+    try {
+      await speciesApi.update(speciesId, { coverPhotoPath: pathThumb });
+      message.success('已设为封面');
+      qc.invalidateQueries({ queryKey: ['species', speciesId] });
+    } catch (e: any) {
+      message.error(e.message || '设置失败');
+    }
+  }
+
+  async function clearCoverPhoto() {
+    try {
+      await speciesApi.update(speciesId, { coverPhotoPath: null });
+      message.success('已清除封面');
+      qc.invalidateQueries({ queryKey: ['species', speciesId] });
+    } catch (e: any) {
+      message.error(e.message || '清除封面失败');
+    }
+  }
+
+  async function regenerateDescription() {
+    try {
+      setRegenerating(true);
+      await speciesApi.regenerate(speciesId);
+      message.success('AI 介绍已生成');
+      qc.invalidateQueries({ queryKey: ['species', speciesId] });
+    } catch (e: any) {
+      message.error(e.message || '生成失败');
+    } finally {
+      setRegenerating(false);
     }
   }
 
@@ -99,7 +136,12 @@ export function SpeciesDetail() {
           </Space>
         </Card>
       ) : (
-        <Card extra={user && <Button icon={<Edit3 size={14} />} onClick={startEdit}>编辑</Button>}>
+        <Card extra={user && (
+          <Space>
+            <Button icon={<Edit3 size={14} />} onClick={startEdit}>编辑</Button>
+            <Button loading={regenerating} onClick={regenerateDescription}>AI 补全介绍</Button>
+          </Space>
+        )}>
           <Descriptions column={2} size="small" bordered>
             <Descriptions.Item label="学名"><i>{sp.scientificName}</i></Descriptions.Item>
             <Descriptions.Item label="英文名">{sp.englishName || '-'}</Descriptions.Item>
@@ -144,20 +186,90 @@ export function SpeciesDetail() {
         </Card>
       )}
 
-      <Typography.Title level={4} style={{ marginTop: 24 }}>我的拍摄 ({items.length})</Typography.Title>
+      <Typography.Title level={4} style={{ marginTop: 24 }}>
+        我的拍摄 ({items.length})
+        {sp.coverPhotoPath && (
+          <Button type="link" size="small" onClick={clearCoverPhoto} style={{ marginLeft: 8 }}>清除封面</Button>
+        )}
+      </Typography.Title>
       {items.length === 0 ? (
         <Empty />
       ) : (
         <div className="thumb-grid">
-          {items.map((s) => (
-            <div key={s.id} className="thumb-card">
-              <img src={s.thumbUrl} alt="" loading="lazy" />
-              <div className="thumb-meta">
-                <div className="date">{s.takenAt ? dayjs(s.takenAt).format('YYYY-MM-DD') : dayjs(s.uploadedAt).format('YYYY-MM-DD')}</div>
+          {items.map((s) => {
+            const isCover = sp.coverPhotoPath !== null && sp.thumbUrl !== null && s.thumbUrl === sp.thumbUrl;
+            return (
+              <div
+                key={s.id}
+                className="thumb-card"
+                style={{ cursor: 'pointer', position: 'relative' }}
+              >
+                <img
+                  src={s.thumbUrl}
+                  alt=""
+                  loading="lazy"
+                  onClick={() => setPreviewImage(s.mainUrl)}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    background: 'rgba(0,0,0,0.6)',
+                    color: '#fff',
+                    borderRadius: 4,
+                    padding: '2px 6px',
+                    fontSize: 11,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 3,
+                    opacity: isCover ? 1 : 0,
+                    transition: 'opacity 0.2s',
+                  }}
+                  className="cover-overlay"
+                >
+                  {isCover ? (
+                    <>
+                      <ImageIcon size={10} /> 封面
+                    </>
+                  ) : (
+                    <Button
+                      type="text"
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCoverPhotoUrl(s.thumbUrl!);
+                      }}
+                      style={{ color: '#fff', padding: 0, height: 'auto' }}
+                    >
+                      设为封面
+                    </Button>
+                  )}
+                </div>
+                <div className="thumb-meta">
+                  <div className="date">{s.takenAt ? dayjs(s.takenAt).format('YYYY-MM-DD') : dayjs(s.uploadedAt).format('YYYY-MM-DD')}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+      )}
+
+      {previewImage && (
+        <Modal
+          open
+          footer={null}
+          onCancel={() => setPreviewImage(null)}
+          width="auto"
+          style={{ top: 20 }}
+          centered
+        >
+          <img
+            src={previewImage}
+            alt=""
+            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain' }}
+          />
+        </Modal>
       )}
     </div>
   );

@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Modal, Button, Radio, Space, Typography, message } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import type { IdentificationCandidate, Sighting } from '../types';
-import { sightingsApi, speciesApi } from '../api';
-import { useNavigate } from 'react-router-dom';
+import { sightingsApi } from '../api';
 
 interface Props {
   sighting: Sighting;
@@ -12,7 +11,6 @@ interface Props {
 }
 
 export function IdentifyResultModal({ sighting, open, onClose }: Props) {
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [customName, setCustomName] = useState('');
@@ -25,28 +23,31 @@ export function IdentifyResultModal({ sighting, open, onClose }: Props) {
   async function submit(idx: number | null) {
     setSubmitting(true);
     try {
-      let speciesId: number | null = null;
+      let scientificName: string | undefined;
+
       if (idx !== null && candidates[idx]) {
         const c = candidates[idx];
-        const found = await findOrCreateSpecies(c);
-        speciesId = found;
+        if (c.scientific_name) {
+          scientificName = c.scientific_name;
+        } else if (c.chinese_name) {
+          scientificName = c.chinese_name;
+        } else {
+          message.error('候选缺少学名信息');
+          setSubmitting(false);
+          return;
+        }
       } else if (customName.trim()) {
-        const found = await findOrCreateSpecies({
-          scientific_name: customName.trim(),
-          chinese_name: customName.trim(),
-          confidence: 1,
-        } as IdentificationCandidate);
-        speciesId = found;
-      }
-      if (!speciesId) {
+        scientificName = customName.trim();
+      } else {
         message.error('请选择一个候选或输入物种名');
         setSubmitting(false);
         return;
       }
-      await sightingsApi.confirm(sighting.id, speciesId);
+
+      await sightingsApi.confirm(sighting.id, { scientificName });
       message.success('已确认');
       qc.invalidateQueries({ queryKey: ['sightings'] });
-      qc.invalidateQueries({ queryKey: ['sighting', sighting.id] });
+      qc.invalidateQueries({ queryKey: ['species'] });
       onClose();
     } catch (err: any) {
       message.error(err.message || '操作失败');
@@ -93,7 +94,7 @@ export function IdentifyResultModal({ sighting, open, onClose }: Props) {
       destroyOnClose
     >
       <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
-        AI 给出了以下候选，请选择正确的物种。
+        AI 给出了以下候选，请选择正确的物种。手动输入新物种名会自动补全介绍。
       </Typography.Paragraph>
       <Radio.Group
         value={selectedIdx}
@@ -122,12 +123,12 @@ export function IdentifyResultModal({ sighting, open, onClose }: Props) {
 
       <div style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 12 }}>
         <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
-          以上都不对？手动输入：
+          以上都不对？输入正确的物种名（学名或中文名）：
         </Typography.Paragraph>
         <Space.Compact style={{ width: '100%' }}>
           <input
             type="text"
-            placeholder="中文名或学名"
+            placeholder="学名或中文名"
             value={customName}
             onChange={(e) => { setCustomName(e.target.value); setSelectedIdx(null); }}
             style={{ flex: 1, padding: '4px 8px', border: '1px solid #d9d9d9', borderRadius: 6 }}
@@ -151,25 +152,4 @@ export function IdentifyResultModal({ sighting, open, onClose }: Props) {
       </div>
     </Modal>
   );
-}
-
-async function findOrCreateSpecies(c: IdentificationCandidate): Promise<number> {
-  if (c.scientific_name) {
-    try {
-      const list = await speciesApi.list({ q: c.scientific_name });
-      const hit = list.items.find((s) => s.scientificName.toLowerCase() === c.scientific_name.toLowerCase());
-      if (hit) return hit.id;
-    } catch {}
-  }
-  const created = await speciesApi.create({
-    scientificName: c.scientific_name || c.chinese_name || 'Unknown',
-    chineseName: c.chinese_name ?? undefined,
-    englishName: c.english_name ?? undefined,
-    orderName: c.order_name ?? undefined,
-    familyName: c.family_name ?? undefined,
-    genus: c.genus ?? undefined,
-    conservation: c.conservation ?? undefined,
-    bodyLengthCm: c.body_length_cm ?? undefined,
-  });
-  return created.id;
 }

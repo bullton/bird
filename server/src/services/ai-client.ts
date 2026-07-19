@@ -24,12 +24,12 @@ export interface IdentifyResult {
 
 export interface SpeciesDescription {
   chinese_name?: string;
-  english_name?: string;
-  order_name?: string;
-  family_name?: string;
-  genus?: string;
-  conservation?: string;
-  body_length_cm?: number;
+  english_name: string;
+  order_name: string;
+  family_name: string;
+  genus: string;
+  conservation: string;
+  body_length_cm: number;
   description: string;
   habitat?: string;
   diet?: string;
@@ -160,27 +160,33 @@ export async function callGenerateDescription(scientificName: string, chineseNam
   const cfg = loadConfig();
   if (!cfg.apiKey) throw new Error('AI API Key 未配置，请到系统设置填写');
 
-  const system = `你是鸟类学研究者。撰写学术风格的中文物种简介。措辞严谨，可引用"研究""观察""文献记载"等学术表达。`;
+  const system = `你是鸟类学研究者。你需要根据提供的中文名或学名，查明该鸟类的完整分类学信息并撰写学术简介。所有字段（english_name、order_name、family_name、genus、conservation、body_length_cm、description、habitat、diet、distribution）都必须填写，不得返回空值或 null。如果不确定某字段，应根据该物种的公开学术资料给出合理值。`;
 
-  const userText = `为以下鸟类撰写学术简介：
-学名：${scientificName}
+  const userText = `查找以下鸟类的完整分类信息：
 中文名：${chineseName || scientificName}
+学名（已知时）：${scientificName}
 
-要求：
-1. description（150~250字）：形态特征（羽色、体型、雌雄差异）、分类地位、生态习性
-2. habitat（80~150字）：典型栖息环境
-3. diet（80~150字）：主要食物与觅食行为
-4. distribution（80~150字）：地理分布与季节性迁徙
+请通过你的知识库查找该鸟类的：
+1. 英文名（english_name）
+2. 目（order_name），如鸡形目、雀形目等
+3. 科（family_name），如雉科、鸦科等
+4. 属（genus）
+5. IUCN保护等级（conservation）：LC/NT/VU/EN/CR
+6. 成年体长（body_length_cm）：数字，单位厘米
+7. description（150~250字）：形态特征、生态习性
+8. habitat（80~150字）：典型栖息环境
+9. diet（80~150字）：主要食物与觅食行为
+10. distribution（80~150字）：地理分布
 
-严格输出 JSON：
+严格输出完整 JSON，所有字段都必须有值：
 {
-  "chinese_name": "...",
-  "english_name": "...",
-  "order_name": "...",
-  "family_name": "...",
-  "genus": "...",
-  "conservation": "...",
-  "body_length_cm": 数字或 null,
+  "chinese_name": "该鸟的中文名",
+  "english_name": "英文俗名",
+  "order_name": "目名",
+  "family_name": "科名",
+  "genus": "属名",
+  "conservation": "LC",
+  "body_length_cm": 25,
   "description": "...",
   "habitat": "...",
   "diet": "...",

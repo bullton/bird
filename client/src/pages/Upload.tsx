@@ -13,8 +13,6 @@ interface UploadItem {
   progress: number;
 }
 
-const CONCURRENT = 3;
-
 export function Upload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -34,13 +32,26 @@ export function Upload() {
     setItems((prev) => prev.filter((it) => it.id !== id));
   };
 
-  const doUpload = async (item: UploadItem) => {
-    updateItem(item.id, { status: 'uploading', progress: 10 });
+  const doBatchUpload = async (batchItems: UploadItem[]) => {
+    batchItems.forEach((it) => updateItem(it.id, { status: 'uploading', progress: 10 }));
+
     try {
-      await sightingsApi.upload(item.file);
-      updateItem(item.id, { status: 'done', progress: 100 });
+      const result = await sightingsApi.upload(batchItems.map((it) => it.file));
+
+      const errorFilenames = new Set((result.errors ?? []).map((e) => e.filename));
+
+      for (const item of batchItems) {
+        if (errorFilenames.has(item.file.name)) {
+          const errObj = result.errors!.find((e) => e.filename === item.file.name);
+          updateItem(item.id, { status: 'failed', message: errObj?.error ?? '上传失败' });
+        } else {
+          updateItem(item.id, { status: 'done', progress: 100 });
+        }
+      }
     } catch (err: any) {
-      updateItem(item.id, { status: 'failed', message: err?.message ?? '上传失败' });
+      for (const it of batchItems) {
+        updateItem(it.id, { status: 'failed', message: err?.message ?? '上传失败' });
+      }
     }
   };
 
@@ -71,30 +82,7 @@ export function Upload() {
       progress: 0,
     }));
     setItems((prev) => [...prev, ...newItems]);
-
-    runQueue(newItems);
-  };
-
-  const queueRef = useRef<UploadItem[]>([]);
-  const runningRef = useRef(0);
-
-  const runQueue = (initial: UploadItem[]) => {
-    const all = [...queueRef.current, ...initial];
-    queueRef.current = all;
-    pump();
-  };
-
-  const pump = () => {
-    while (runningRef.current < CONCURRENT && queueRef.current.length > 0) {
-      const next = queueRef.current.shift();
-      if (!next) break;
-      if (next.status !== 'pending') continue;
-      runningRef.current++;
-      doUpload(next).finally(() => {
-        runningRef.current--;
-        pump();
-      });
-    }
+    doBatchUpload(newItems);
   };
 
   const handleFiles = (list: FileList | null) => {

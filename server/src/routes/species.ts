@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db, schema } from '../db/client.js';
 import { and, count, desc, eq, isNull, like, or, sql } from 'drizzle-orm';
+import { fileUrl } from '../services/image-processor.js';
+import { callGenerateDescription } from '../services/ai-client.js';
 
 const PAGE_SIZE = 50;
 
@@ -20,7 +22,9 @@ const createSpeciesSchema = z.object({
   bodyLengthCm: z.number().optional(),
 });
 
-const updateSpeciesSchema = createSpeciesSchema.partial();
+const updateSpeciesSchema = createSpeciesSchema.partial().extend({
+  coverPhotoPath: z.string().optional().nullable(),
+});
 
 export async function speciesRoutes(app: FastifyInstance) {
   app.get('/api/species', async (req) => {
@@ -68,7 +72,8 @@ export async function speciesRoutes(app: FastifyInstance) {
         conservation: schema.species.conservation,
         bodyLengthCm: schema.species.bodyLengthCm,
         createdVia: schema.species.createdVia,
-        sightingCount: sql<number>`(SELECT COUNT(*) FROM sightings WHERE sightings.species_id = ${schema.species.id} AND sightings.deleted_at IS NULL)`,
+        coverPhotoPath: schema.species.coverPhotoPath,
+        sightingCount: sql<number>`(SELECT COUNT(*) FROM sightings WHERE sightings.species_id = species.id AND sightings.deleted_at IS NULL)`,
       })
       .from(schema.species)
       .where(where)
@@ -77,7 +82,27 @@ export async function speciesRoutes(app: FastifyInstance) {
       .offset((page - 1) * PAGE_SIZE)
       .all();
 
-    return { items: rows, total, page, pageSize: PAGE_SIZE };
+    const items = rows.map((sp) => {
+      let thumbUrl: string | null = null;
+      if (sp.coverPhotoPath) {
+        thumbUrl = fileUrl(sp.coverPhotoPath);
+      } else {
+        const firstPhoto = db.select({ pathThumb: schema.sightings.pathThumb })
+          .from(schema.sightings)
+          .where(and(
+            eq(schema.sightings.speciesId, sp.id),
+            isNull(schema.sightings.deletedAt),
+            or(eq(schema.sightings.status, 'confirmed'), eq(schema.sightings.status, 'corrected'))
+          ))
+          .orderBy(desc(schema.sightings.takenAt))
+          .limit(1)
+          .get();
+        if (firstPhoto) thumbUrl = fileUrl(firstPhoto.pathThumb);
+      }
+      return { ...sp, thumbUrl };
+    });
+
+    return { items, total, page, pageSize: PAGE_SIZE };
   });
 
   app.get<{ Params: { id: string } }>('/api/species/:id', async (req, reply) => {
@@ -94,7 +119,24 @@ export async function speciesRoutes(app: FastifyInstance) {
     const stats: Record<string, number> = { total: 0, pending: 0, confirmed: 0, corrected: 0, failed: 0 };
     for (const r of counts) { stats[r.status] = r.c; stats.total += r.c; }
 
-    return { ...sp, stats };
+    let thumbUrl: string | null = null;
+    if (sp.coverPhotoPath) {
+      thumbUrl = fileUrl(sp.coverPhotoPath);
+    } else {
+      const firstPhoto = db.select({ pathThumb: schema.sightings.pathThumb })
+        .from(schema.sightings)
+        .where(and(
+          eq(schema.sightings.speciesId, id),
+          isNull(schema.sightings.deletedAt),
+          or(eq(schema.sightings.status, 'confirmed'), eq(schema.sightings.status, 'corrected'))
+        ))
+        .orderBy(desc(schema.sightings.takenAt))
+        .limit(1)
+        .get();
+      if (firstPhoto) thumbUrl = fileUrl(firstPhoto.pathThumb);
+    }
+
+    return { ...sp, stats, thumbUrl };
   });
 
   app.post('/api/species', { preHandler: app.requireMember }, async (req, reply) => {
@@ -121,6 +163,30 @@ export async function speciesRoutes(app: FastifyInstance) {
       ...parsed.data,
       updatedAt: new Date().toISOString(),
     }).where(eq(schema.species.id, id)).run();
+    return { ok: true };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/species/:id/regenerate', { preHandler: app.requireMember }, async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return reply.code(400).send({ error: 'Invalid id' });
+    const sp = db.select().from(schema.species).where(eq(schema.species.id, id)).get();
+    if (!sp) return reply.code(404).send({ error: 'Not found' });
+
+    const desc = await callGenerateDescription(sp.scientificName, sp.chineseName ?? sp.scientificName);
+    db.update(schema.species).set({
+      englishName: desc.english_name ?? null,
+      orderName: desc.order_name ?? null,
+      familyName: desc.family_name ?? null,
+      genus: desc.genus ?? null,
+      conservation: desc.conservation ?? null,
+      bodyLengthCm: desc.body_length_cm ?? null,
+      description: desc.description,
+      habitat: desc.habitat ?? null,
+      diet: desc.diet ?? null,
+      distribution: desc.distribution ?? null,
+      updatedAt: new Date().toISOString(),
+    }).where(eq(schema.species.id, id)).run();
+
     return { ok: true };
   });
 

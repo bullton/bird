@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Input, Select, Typography, Empty, Skeleton, Space, Tag, Segmented } from 'antd';
+import { Card, Input, Select, Typography, Empty, Skeleton, Space, Tag } from 'antd';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { speciesApi } from '../api';
@@ -8,7 +8,6 @@ import { Bird, Search } from 'lucide-react';
 export function Gallery() {
   const [search, setSearch] = useState('');
   const [family, setFamily] = useState<string | undefined>();
-  const [view, setView] = useState<'species' | 'photos'>('species');
 
   const { data: families } = useQuery({
     queryKey: ['species', 'families'],
@@ -50,11 +49,11 @@ export function Gallery() {
 
       {isLoading ? (
         <Skeleton active />
-      ) : (data?.items.length ?? 0) === 0 ? (
+      ) : (data?.items.filter((s: any) => (s.sightingCount ?? 0) > 0).length ?? 0) === 0 ? (
         <Empty description="还没有物种记录" />
       ) : (
         <div className="thumb-grid">
-          {data!.items.map((sp) => (
+          {data!.items.filter((sp: any) => (sp.sightingCount ?? 0) > 0).map((sp) => (
             <Link key={sp.id} to={`/species/${sp.id}`} className="thumb-card">
               <div style={{
                 height: 180,
@@ -62,8 +61,13 @@ export function Gallery() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                overflow: 'hidden',
               }}>
-                <Bird size={48} color="#5a8a6d" />
+                {sp.thumbUrl ? (
+                  <img src={sp.thumbUrl} alt={sp.scientificName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <Bird size={48} color="#5a8a6d" />
+                )}
               </div>
               <div className="thumb-meta">
                 <div className="name">{sp.chineseName || sp.scientificName}</div>

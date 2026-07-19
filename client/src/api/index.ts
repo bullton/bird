@@ -41,13 +41,16 @@ export const sightingsApi = {
     patch<{ ok: true }>(`/api/sightings/${id}`, data),
   remove: (id: number) => del<{ ok: true }>(`/api/sightings/${id}`),
   reidentify: (id: number) => post<{ ok: true; status: SightingStatus }>(`/api/sightings/${id}/reidentify`),
-  confirm: (id: number, speciesId: number) =>
-    post<{ ok: true }>(`/api/sightings/${id}/confirm`, { speciesId }),
+  confirm: (id: number, data: { speciesId?: number; scientificName?: string }) =>
+    post<{ ok: true }>(`/api/sightings/${id}/confirm`, data),
   counts: () => get<Record<SightingStatus, number>>('/api/sightings/stats/counts'),
-  upload: (file: File) => {
+  upload: (files: File | File[]) => {
     const fd = new FormData();
-    fd.append('photo', file);
-    return post<{ id: number; status: SightingStatus; thumbUrl: string; mainUrl: string }>('/api/sightings', fd);
+    const fileArray = Array.isArray(files) ? files : [files];
+    for (const f of fileArray) {
+      fd.append('photos', f);
+    }
+    return post<{ items: Array<{ id: number; status: SightingStatus; thumbUrl: string; mainUrl: string }>; errors?: Array<{ filename: string; error: string }> }>('/api/sightings', fd);
   },
 };
 
@@ -57,8 +60,9 @@ export const speciesApi = {
   get: (id: number) => get<Species>(`/api/species/${id}`),
   create: (data: Partial<Species> & { scientificName: string }) =>
     post<{ id: number }>('/api/species', data),
-  update: (id: number, data: Partial<Species>) =>
+  update: (id: number, data: Partial<Species> & { coverPhotoPath?: string | null }) =>
     patch<{ ok: true }>(`/api/species/${id}`, data),
+  regenerate: (id: number) => post<{ ok: true }>(`/api/species/${id}/regenerate`),
   families: () => get<Array<{ familyName: string | null; orderName: string | null; count: number }>>('/api/species/stats/families'),
 };
 

@@ -33,6 +33,7 @@ export const species = sqliteTable('species', {
   createdVia:      text('created_via').notNull().default('ai'),
   createdAt:       text('created_at').notNull().default(sql`(datetime('now'))`),
   updatedAt:       text('updated_at'),
+  coverPhotoPath:   text('cover_photo_path'),
 });
 
 export const speciesAliases = sqliteTable('species_aliases', {

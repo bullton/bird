@@ -69,12 +69,16 @@ body { margin: 0; background: #fafaf7; color: #222; }
   object-fit: cover;
   display: block;
 }
+.thumb-card:hover .cover-overlay {
+  opacity: 1 !important;
+}
 .thumb-meta {
   padding: 8px 10px;
   background: #fff;
   border-top: 1px solid #f0f0ec;
 }
 .thumb-meta .name { font-weight: 500; font-size: 14px; }
+.thumb-meta .name:hover { text-decoration: underline; color: #2d5a3d; }
 .thumb-meta .date { font-size: 12px; color: #888; margin-top: 2px; }
 
 .timeline-group { margin-bottom: 32px; }

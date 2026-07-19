@@ -76,7 +76,7 @@ export async function processUpload(buffer: Buffer, originalName: string): Promi
         'Make', 'Model', 'LensModel',
         'FNumber', 'ExposureTime', 'ISO', 'FocalLength',
       ],
-    }) as any) ?? {};
+    } as any)) ?? {};
   } catch {
     exifRaw = {};
   }

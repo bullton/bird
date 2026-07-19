@@ -7,7 +7,6 @@ let interval: NodeJS.Timeout | null = null;
 let busy = false;
 
 const POLL_INTERVAL_MS = 1000;
-const MAX_ATTEMPTS_DEFAULT = 3;
 
 export function startTaskWorker() {
   if (interval) return;
@@ -47,8 +46,16 @@ async function tick() {
 }
 
 async function pollOnce() {
-  const task = db.transaction((tx) => {
-    const row = tx
+  let task: (typeof schema.taskQueue.$inferSelect) | null = null;
+
+  try {
+    db.run(sql`BEGIN IMMEDIATE`);
+  } catch {
+    return;
+  }
+
+  try {
+    const row = db
       .select()
       .from(schema.taskQueue)
       .where(
@@ -59,9 +66,14 @@ async function pollOnce() {
       )
       .orderBy(sql`${schema.taskQueue.scheduledAt} asc`)
       .limit(1)
-      .all()[0];
-    if (!row) return null;
-    tx.update(schema.taskQueue)
+      .get();
+
+    if (!row) {
+      db.run(sql`ROLLBACK`);
+      return;
+    }
+
+    db.update(schema.taskQueue)
       .set({
         status: 'running',
         startedAt: sql`datetime('now')`,
@@ -69,8 +81,14 @@ async function pollOnce() {
       })
       .where(eq(schema.taskQueue.id, row.id))
       .run();
-    return { ...row, attempts: row.attempts + 1 };
-  });
+
+    task = { ...row, attempts: row.attempts + 1 };
+    db.run(sql`COMMIT`);
+  } catch (err) {
+    db.run(sql`ROLLBACK`);
+    throw err;
+  }
+
   if (!task) return;
 
   try {

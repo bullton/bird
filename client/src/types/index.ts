@@ -73,6 +73,8 @@ export interface Species {
   bodyLengthCm: number | null;
   createdVia: string;
   sightingCount?: number;
+  coverPhotoPath?: string | null;
+  thumbUrl?: string | null;
   description?: string | null;
   habitat?: string | null;
   diet?: string | null;

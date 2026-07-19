@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { Card, Button, Space, Typography, Segmented, Skeleton, Empty, Input, App } from 'antd';
+import { Card, Button, Space, Typography, Segmented, Skeleton, Empty, Input, App, Modal, message } from 'antd';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { sightingsApi } from '../api';
 import { StatusBadge, LowConfidenceBadge } from '../components/StatusBadge';
@@ -22,6 +22,7 @@ export function Timeline() {
     params.get('focus') ? parseInt(params.get('focus')!, 10) : null
   );
   const [modalItem, setModalItem] = useState<Sighting | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const {
     data,
@@ -79,20 +80,24 @@ export function Timeline() {
               <div className="timeline-month">{month}</div>
               <div className="thumb-grid">
                 {list.map((s) => (
-                  <div key={s.id} className="thumb-card" onClick={() => {
-                    if (s.status === 'pending' && s.identification && s.confidenceMax !== null && s.confidenceMax < 0.7) {
-                      setModalItem(s);
-                    } else if (s.status === 'failed') {
-                      reidentify(s.id);
-                    } else if (focusId === s.id) {
-                      setFocusId(null);
-                    } else {
-                      setFocusId(s.id);
-                    }
-                  }}>
-                    <img src={s.thumbUrl} alt="" loading="lazy" />
+                  <div key={s.id} className="thumb-card">
+                    <img
+                      src={s.thumbUrl}
+                      alt=""
+                      loading="lazy"
+                      onClick={() => setPreviewImage(s.mainUrl)}
+                      style={{ cursor: 'pointer' }}
+                    />
                     <div className="thumb-meta">
-                      <div className="name">
+                      <div className="name" onClick={() => {
+                        if (s.status === 'pending' && s.identification && s.confidenceMax !== null && s.confidenceMax < 0.7) {
+                          setModalItem(s);
+                        } else if (s.status === 'failed') {
+                          reidentify(s.id);
+                        } else {
+                          setFocusId(focusId === s.id ? null : s.id);
+                        }
+                      }} style={{ cursor: 'pointer' }}>
                         {s.chineseName || s.scientificName || '未识别'}
                         {s.status === 'pending' && s.identification && s.confidenceMax !== null && s.confidenceMax < 0.7 && (
                           <LowConfidenceBadge />
@@ -139,6 +144,23 @@ export function Timeline() {
       {modalItem && (
         <IdentifyResultModal sighting={modalItem} open onClose={() => setModalItem(null)} />
       )}
+
+      {previewImage && (
+        <Modal
+          open
+          footer={null}
+          onCancel={() => setPreviewImage(null)}
+          width="auto"
+          style={{ top: 20 }}
+          centered
+        >
+          <img
+            src={previewImage}
+            alt=""
+            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain' }}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
@@ -155,9 +177,12 @@ function groupByMonth(items: Sighting[]): Record<string, Sighting[]> {
 
 function SightingDetail({ sighting, canEdit, onClose }: { sighting: Sighting; canEdit: boolean; onClose: () => void }) {
   const { message } = App.useApp();
+  const qc = useQueryClient();
   const navigate = useNavigate();
   const [note, setNote] = useState(sighting.userNote || '');
   const [editing, setEditing] = useState(false);
+  const [changingSpecies, setChangingSpecies] = useState(false);
+  const [speciesInput, setSpeciesInput] = useState('');
 
   async function save() {
     try {
@@ -172,6 +197,18 @@ function SightingDetail({ sighting, canEdit, onClose }: { sighting: Sighting; ca
       await sightingsApi.update(sighting.id, { isFavorite: !sighting.isFavorite });
       message.success('已更新');
     } catch (e: any) { message.error(e.message); }
+  }
+
+  async function changeSpecies() {
+    if (!speciesInput.trim()) return;
+    try {
+      await sightingsApi.confirm(sighting.id, { scientificName: speciesInput.trim() });
+      message.success('物种已更新');
+      setChangingSpecies(false);
+      setSpeciesInput('');
+      qc.invalidateQueries({ queryKey: ['sightings'] });
+      qc.invalidateQueries({ queryKey: ['species'] });
+    } catch (e: any) { message.error(e.message || '修改失败'); }
   }
 
   async function del() {
@@ -199,6 +236,27 @@ function SightingDetail({ sighting, canEdit, onClose }: { sighting: Sighting; ca
         <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate(`/species/${sighting.speciesId}`)}>
           查看物种详情 →
         </Button>
+      )}
+      {canEdit && (
+        <div style={{ marginTop: 4 }}>
+          {changingSpecies ? (
+            <Space.Compact style={{ width: '100%' }}>
+              <Input
+                size="small"
+                placeholder="输入学名或中文名"
+                value={speciesInput}
+                onChange={(e) => setSpeciesInput(e.target.value)}
+                onPressEnter={changeSpecies}
+              />
+              <Button size="small" type="primary" onClick={changeSpecies}>确定</Button>
+              <Button size="small" onClick={() => { setChangingSpecies(false); setSpeciesInput(''); }}>取消</Button>
+            </Space.Compact>
+          ) : (
+            <Button size="small" type="link" style={{ padding: 0, height: 'auto' }} onClick={() => setChangingSpecies(true)}>
+              修正物种
+            </Button>
+          )}
+        </div>
       )}
       {canEdit && (
         <div style={{ marginTop: 8 }}>

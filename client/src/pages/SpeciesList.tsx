@@ -49,13 +49,13 @@ export function SpeciesList() {
 
       {isLoading ? (
         <Skeleton active />
-      ) : (data?.items.length ?? 0) === 0 ? (
+      ) : (data?.items.filter((s: any) => (s.sightingCount ?? 0) > 0).length ?? 0) === 0 ? (
         <Empty description="还没有物种记录" />
       ) : (
         <Card>
           <Table
             rowKey="id"
-            dataSource={data!.items}
+            dataSource={data!.items.filter((s: any) => (s.sightingCount ?? 0) > 0)}
             pagination={{ pageSize: 30, showSizeChanger: false }}
             columns={[
               {
