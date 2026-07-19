@@ -1,18 +1,19 @@
 [Unit]
-Description=BirdLog Family Bird Photo Logger
+Description=BirdLog Server
 After=network.target
 
 [Service]
 Type=simple
-User=birdlog
-WorkingDirectory=/opt/birdlog
-ExecStart=/usr/bin/node /opt/birdlog/server/dist/index.js
+User=bullton
+WorkingDirectory=/home/bullton/bird
+Environment=PORT=3005
+Environment=BIRDLOG_HOST=0.0.0.0
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server/dist/index.js
 Restart=on-failure
 RestartSec=5
-Environment=NODE_ENV=production
-EnvironmentFile=/opt/birdlog/.env
-StandardOutput=append:/opt/birdlog/logs/systemd.out.log
-StandardError=append:/opt/birdlog/logs/systemd.err.log
+StandardOutput=append:/home/bullton/bird/logs/server.log
+StandardError=append:/home/bullton/bird/logs/server.err.log
 
 [Install]
 WantedBy=multi-user.target
