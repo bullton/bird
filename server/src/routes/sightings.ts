@@ -1,0 +1,272 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { db, schema } from '../db/client.js';
+import { and, desc, eq, isNull, like, or, sql } from 'drizzle-orm';
+import { processUpload, fileUrl, removeFiles } from '../services/image-processor.js';
+import { cleanupAiImage } from '../services/jobs/identify.js';
+import { config } from '../config.js';
+
+const PAGE_SIZE = 30;
+
+const updateSightingSchema = z.object({
+  speciesId: z.number().int().nullable().optional(),
+  userNote: z.string().max(2000).nullable().optional(),
+  isFavorite: z.boolean().optional(),
+  takenAt: z.string().optional(),
+});
+
+const confirmSchema = z.object({
+  speciesId: z.number().int(),
+});
+
+export async function sightingRoutes(app: FastifyInstance) {
+  app.post('/api/sightings', { preHandler: app.requireMember }, async (req, reply) => {
+    if (!req.isMultipart()) {
+      return reply.code(400).send({ error: 'Expected multipart/form-data' });
+    }
+    const part = await req.file({
+      limits: { fileSize: config.uploadMaxBytes },
+    });
+    if (!part) return reply.code(400).send({ error: 'No file uploaded' });
+
+    const buffer = await part.toBuffer();
+    if (part.file.truncated) {
+      return reply.code(413).send({ error: '文件超过 30MB' });
+    }
+
+    let processed;
+    try {
+      processed = await processUpload(buffer, part.filename);
+    } catch (err: any) {
+      return reply.code(400).send({ error: err?.message ?? '处理失败' });
+    }
+
+    const inserted = db.insert(schema.sightings).values({
+      userId: req.user!.id,
+      pathOriginal: processed.originalRel,
+      pathMain: processed.mainRel,
+      pathAi: processed.aiRel,
+      pathThumb: processed.thumbRel,
+      photoHash: processed.hash,
+      fileSizeBytes: processed.originalSize,
+      takenAt: processed.exif.takenAt ?? new Date().toISOString(),
+      lat: processed.exif.lat ?? null,
+      lng: processed.exif.lng ?? null,
+      altitudeM: processed.exif.altitudeM ?? null,
+      locationSource: processed.exif.lat ? 'exif' : null,
+      exifJson: JSON.stringify(processed.exif.raw),
+      status: 'pending',
+      aiProvider: 'minimax',
+    }).returning({ id: schema.sightings.id }).get();
+
+    db.insert(schema.taskQueue).values({
+      sightingId: inserted.id,
+      taskType: 'identify',
+    }).run();
+
+    return {
+      id: inserted.id,
+      status: 'pending',
+      thumbUrl: fileUrl(processed.thumbRel),
+      mainUrl: fileUrl(processed.mainRel),
+    };
+  });
+
+  app.get('/api/sightings', async (req, reply) => {
+    const q = z.object({
+      page: z.coerce.number().int().min(1).default(1),
+      speciesId: z.coerce.number().int().optional(),
+      status: z.enum(['pending', 'confirmed', 'corrected', 'failed']).optional(),
+      favorite: z.coerce.boolean().optional(),
+      from: z.string().optional(),
+      to: z.string().optional(),
+      view: z.enum(['all', 'pending_only', 'identified']).default('all'),
+    }).safeParse(req.query);
+    if (!q.success) return reply.code(400).send({ error: 'Invalid query' });
+    const { page, speciesId, status, favorite, from, to, view } = q.data;
+
+    const conds: any[] = [isNull(schema.sightings.deletedAt)];
+    if (speciesId) conds.push(eq(schema.sightings.speciesId, speciesId));
+    if (status) conds.push(eq(schema.sightings.status, status));
+    if (favorite) conds.push(eq(schema.sightings.isFavorite, 1));
+    if (from) conds.push(sql`${schema.sightings.takenAt} >= ${from}`);
+    if (to) conds.push(sql`${schema.sightings.takenAt} <= ${to}`);
+    if (view === 'pending_only') {
+      conds.push(or(eq(schema.sightings.status, 'pending'), eq(schema.sightings.status, 'failed'))!);
+    } else if (view === 'identified') {
+      conds.push(or(eq(schema.sightings.status, 'confirmed'), eq(schema.sightings.status, 'corrected'))!);
+    }
+    const where = conds.length > 1 ? and(...conds) : conds[0];
+
+    const total = db.select({ c: sql<number>`count(*)` }).from(schema.sightings).where(where).get()?.c ?? 0;
+
+    const rows = db
+      .select({
+        id: schema.sightings.id,
+        userId: schema.sightings.userId,
+        speciesId: schema.sightings.speciesId,
+        pathThumb: schema.sightings.pathThumb,
+        pathMain: schema.sightings.pathMain,
+        takenAt: schema.sightings.takenAt,
+        uploadedAt: schema.sightings.uploadedAt,
+        status: schema.sightings.status,
+        confidenceMax: schema.sightings.confidenceMax,
+        identificationJson: schema.sightings.identificationJson,
+        isFavorite: schema.sightings.isFavorite,
+        userNote: schema.sightings.userNote,
+        scientificName: schema.species.scientificName,
+        chineseName: schema.species.chineseName,
+        englishName: schema.species.englishName,
+        familyName: schema.species.familyName,
+        username: schema.users.username,
+        displayName: schema.users.displayName,
+      })
+      .from(schema.sightings)
+      .leftJoin(schema.species, eq(schema.sightings.speciesId, schema.species.id))
+      .leftJoin(schema.users, eq(schema.sightings.userId, schema.users.id))
+      .where(where)
+      .orderBy(desc(schema.sightings.takenAt), desc(schema.sightings.id))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE)
+      .all();
+
+    const items = rows.map((r) => ({
+      ...r,
+      thumbUrl: fileUrl(r.pathThumb),
+      mainUrl: fileUrl(r.pathMain),
+      identification: r.identificationJson ? JSON.parse(r.identificationJson) : null,
+      isFavorite: !!r.isFavorite,
+    }));
+
+    return { items, total, page, pageSize: PAGE_SIZE };
+  });
+
+  app.get<{ Params: { id: string } }>('/api/sightings/:id', async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return reply.code(400).send({ error: 'Invalid id' });
+    const r = db
+      .select({
+        sighting: schema.sightings,
+        species: schema.species,
+        user: schema.users,
+      })
+      .from(schema.sightings)
+      .leftJoin(schema.species, eq(schema.sightings.speciesId, schema.species.id))
+      .leftJoin(schema.users, eq(schema.sightings.userId, schema.users.id))
+      .where(and(eq(schema.sightings.id, id), isNull(schema.sightings.deletedAt)))
+      .get();
+    if (!r || !r.sighting) return reply.code(404).send({ error: 'Not found' });
+    return {
+      ...r.sighting,
+      isFavorite: !!r.sighting.isFavorite,
+      exif: r.sighting.exifJson ? JSON.parse(r.sighting.exifJson) : null,
+      identification: r.sighting.identificationJson ? JSON.parse(r.sighting.identificationJson) : null,
+      thumbUrl: fileUrl(r.sighting.pathThumb),
+      mainUrl: fileUrl(r.sighting.pathMain),
+      originalUrl: r.sighting.pathOriginal ? fileUrl(r.sighting.pathOriginal) : null,
+      species: r.species,
+      uploadedBy: r.user ? { id: r.user.id, username: r.user.username, displayName: r.user.displayName } : null,
+    };
+  });
+
+  app.patch<{ Params: { id: string } }>('/api/sightings/:id', { preHandler: app.requireMember }, async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return reply.code(400).send({ error: 'Invalid id' });
+    const parsed = updateSightingSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid input' });
+    const row = db.select().from(schema.sightings).where(eq(schema.sightings.id, id)).get();
+    if (!row || row.deletedAt) return reply.code(404).send({ error: 'Not found' });
+
+    const updates: Partial<typeof schema.sightings.$inferInsert> = {};
+    if (parsed.data.speciesId !== undefined) {
+      updates.speciesId = parsed.data.speciesId;
+      if (parsed.data.speciesId && row.speciesId !== parsed.data.speciesId) {
+        const aiTop = row.identificationJson ? (JSON.parse(row.identificationJson)?.[0]?.scientific_name ?? null) : null;
+        db.insert(schema.identificationCorrections).values({
+          sightingId: id,
+          userId: req.user!.id,
+          predictedTop: aiTop,
+          correctedTo: parsed.data.speciesId,
+          confidence: row.confidenceMax ?? null,
+          correctionType: 'wrong_species',
+        }).run();
+        updates.status = 'corrected';
+      } else if (!parsed.data.speciesId) {
+        updates.speciesId = null;
+      }
+    }
+    if (parsed.data.userNote !== undefined) updates.userNote = parsed.data.userNote;
+    if (parsed.data.isFavorite !== undefined) updates.isFavorite = parsed.data.isFavorite ? 1 : 0;
+    if (parsed.data.takenAt) updates.takenAt = parsed.data.takenAt;
+
+    db.update(schema.sightings).set(updates).where(eq(schema.sightings.id, id)).run();
+    // 修改物种后状态变 corrected，清理 AI 图
+    if (updates.status === 'corrected') {
+      await cleanupAiImage(id);
+    }
+    return { ok: true };
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/sightings/:id', { preHandler: app.requireMember }, async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return reply.code(400).send({ error: 'Invalid id' });
+    db.update(schema.sightings)
+      .set({ deletedAt: new Date().toISOString() })
+      .where(eq(schema.sightings.id, id))
+      .run();
+    return { ok: true };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/sightings/:id/reidentify', { preHandler: app.requireMember }, async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return reply.code(400).send({ error: 'Invalid id' });
+    const row = db.select().from(schema.sightings).where(eq(schema.sightings.id, id)).get();
+    if (!row || row.deletedAt) return reply.code(404).send({ error: 'Not found' });
+    db.update(schema.sightings).set({
+      status: 'pending',
+      identificationJson: null,
+      confidenceMax: null,
+      speciesId: null,
+    }).where(eq(schema.sightings.id, id)).run();
+    db.insert(schema.taskQueue).values({ sightingId: id, taskType: 'identify' }).run();
+    return { ok: true, status: 'pending' };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/sightings/:id/confirm', { preHandler: app.requireMember }, async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return reply.code(400).send({ error: 'Invalid id' });
+    const parsed = confirmSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid input' });
+    const row = db.select().from(schema.sightings).where(eq(schema.sightings.id, id)).get();
+    if (!row || row.deletedAt) return reply.code(404).send({ error: 'Not found' });
+    const aiTop = row.identificationJson ? (JSON.parse(row.identificationJson)?.[0]?.scientific_name ?? null) : null;
+    const correctionType = row.speciesId && row.speciesId !== parsed.data.speciesId ? 'wrong_species' : 'confirmed';
+    db.update(schema.sightings).set({
+      speciesId: parsed.data.speciesId,
+      status: correctionType === 'confirmed' ? 'confirmed' : 'corrected',
+    }).where(eq(schema.sightings.id, id)).run();
+    // 手动确认成功后也清理 AI 图
+    await cleanupAiImage(id);
+    if (correctionType !== 'confirmed') {
+      db.insert(schema.identificationCorrections).values({
+        sightingId: id,
+        userId: req.user!.id,
+        predictedTop: aiTop,
+        correctedTo: parsed.data.speciesId,
+        confidence: row.confidenceMax ?? null,
+        correctionType,
+      }).run();
+    }
+    return { ok: true };
+  });
+
+  app.get('/api/sightings/stats/counts', async () => {
+    const rows = db.select({
+      status: schema.sightings.status,
+      c: sql<number>`count(*)`,
+    }).from(schema.sightings).where(isNull(schema.sightings.deletedAt)).groupBy(schema.sightings.status).all();
+    const m: Record<string, number> = { pending: 0, confirmed: 0, corrected: 0, failed: 0 };
+    for (const r of rows) m[r.status] = r.c;
+    return m;
+  });
+}

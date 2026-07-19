@@ -1,0 +1,18 @@
+[Unit]
+Description=BirdLog Family Bird Photo Logger
+After=network.target
+
+[Service]
+Type=simple
+User=birdlog
+WorkingDirectory=/opt/birdlog
+ExecStart=/usr/bin/node /opt/birdlog/server/dist/index.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/birdlog/.env
+StandardOutput=append:/opt/birdlog/logs/systemd.out.log
+StandardError=append:/opt/birdlog/logs/systemd.err.log
+
+[Install]
+WantedBy=multi-user.target

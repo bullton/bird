@@ -1,0 +1,110 @@
+html, body, #root { height: 100%; }
+body { margin: 0; background: #fafaf7; color: #222; }
+* { box-sizing: border-box; }
+
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #888;
+}
+
+.layout-shell {
+  min-height: 100vh;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 18px;
+  color: #fff !important;
+}
+
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.page-title {
+  margin-bottom: 16px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.muted { color: #888; }
+
+.thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.thumb-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f0f0ec;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.thumb-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.thumb-card img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display: block;
+}
+.thumb-meta {
+  padding: 8px 10px;
+  background: #fff;
+  border-top: 1px solid #f0f0ec;
+}
+.thumb-meta .name { font-weight: 500; font-size: 14px; }
+.thumb-meta .date { font-size: 12px; color: #888; margin-top: 2px; }
+
+.timeline-group { margin-bottom: 32px; }
+.timeline-month { font-size: 18px; font-weight: 600; margin-bottom: 12px; padding-left: 4px; color: #2d5a3d; }
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.status-pending { background: #fff7e6; color: #d48806; }
+.status-confirmed { background: #f6ffed; color: #389e0d; }
+.status-corrected { background: #e6f4ff; color: #1677ff; }
+.status-failed { background: #fff1f0; color: #cf1322; }
+
+.identify-popover {
+  max-width: 480px;
+}
+
+@media (max-width: 768px) {
+  .page-container { padding: 16px 12px; }
+  .thumb-card img { height: 160px; }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: #888;
+}

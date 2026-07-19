@@ -1,0 +1,19 @@
+{
+  "name": "birdlog",
+  "version": "0.1.0",
+  "private": true,
+  "description": "家庭鸟类记录系统",
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build",
+    "build": "npm run build:server && npm run build:client",
+    "start": "pm2-runtime start ecosystem.config.cjs",
+    "stop": "pm2 stop ecosystem.config.cjs",
+    "restart": "pm2 restart ecosystem.config.cjs",
+    "logs": "pm2 logs birdlog",
+    "migrate": "cd server && npm run db:migrate",
+    "reset-password": "cd server && npm run reset-password --"
+  }
+}
