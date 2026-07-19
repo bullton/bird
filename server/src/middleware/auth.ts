@@ -9,10 +9,17 @@ export interface AuthUser {
   mustChangePassword: boolean;
 }
 
+declare module 'fastify' {
+  interface FastifyRequest {
+    authUser?: AuthUser;
+  }
+}
+
 export async function attachUser(req: FastifyRequest, reply: FastifyReply) {
   try {
     await req.jwtVerify<{ sub: number }>();
-    const userId = req.user?.sub ?? (req as any).user?.id;
+    const payload = req.user as { sub: number } | undefined;
+    const userId = payload?.sub ?? (req as any).user?.id;
     if (!userId) return;
     const row = db
       .select({
