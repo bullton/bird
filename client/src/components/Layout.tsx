@@ -56,13 +56,14 @@ export function Layout() {
         top: 0,
         zIndex: 10,
         background: '#2d5a3d',
-        padding: '0 16px',
+        padding: '0 12px',
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
+        gap: 12,
+        height: 48,
       }}>
         <Link to="/" className="brand">
-          <span className="brand-logo"><Bird size={20} /></span>
+          <span className="brand-logo" style={{ width: 28, height: 28 }}><Bird size={18} /></span>
           <span style={{ marginLeft: 4 }}>家庭鸟类图鉴</span>
         </Link>
         <div style={{ flex: 1 }} />
@@ -72,7 +73,7 @@ export function Layout() {
               <Avatar size={28} style={{ background: '#5a8a6d' }}>
                 {(user.displayName || user.username || '?').slice(0, 1).toUpperCase()}
               </Avatar>
-              <span>{user.displayName || user.username}</span>
+              <span className="header-username">{user.displayName || user.username}</span>
               {user.role === 'admin' && <Tag color="gold" style={{ marginLeft: 4 }}>管理员</Tag>}
               <ChevronDown size={14} />
             </span>

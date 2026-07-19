@@ -103,8 +103,20 @@ body { margin: 0; background: #fafaf7; color: #222; }
 }
 
 @media (max-width: 768px) {
-  .page-container { padding: 16px 12px; }
+  .page-container { padding: 12px 10px; }
   .thumb-card img { height: 160px; }
+  .thumb-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+  .brand span:last-child { display: none; }
+  .ant-layout-footer { padding: 12px; font-size: 12px; }
+  .header-username { display: none; }
+}
+
+@media (max-width: 480px) {
+  .thumb-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .thumb-card img { height: 130px; }
+  .thumb-meta { padding: 6px 8px; }
+  .thumb-meta .name { font-size: 13px; }
+  .page-title { font-size: 18px; }
 }
 
 .empty-state {
