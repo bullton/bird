@@ -6,7 +6,12 @@ export async function statsRoutes(app: FastifyInstance) {
   app.get('/api/stats/summary', async () => {
     const total = db.select({ c: sql<number>`count(*)` }).from(schema.sightings)
       .where(isNull(schema.sightings.deletedAt)).get()?.c ?? 0;
-    const speciesCount = db.select({ c: sql<number>`count(*)` }).from(schema.species).get()?.c ?? 0;
+    const speciesCount = db.select({ c: sql<number>`count(DISTINCT ${schema.sightings.speciesId})` }).from(schema.sightings)
+      .where(and(
+        isNull(schema.sightings.deletedAt),
+        sql`${schema.sightings.status} IN ('confirmed', 'corrected')`,
+        sql`${schema.sightings.speciesId} IS NOT NULL`,
+      )).get()?.c ?? 0;
     const identified = db.select({ c: sql<number>`count(*)` }).from(schema.sightings)
       .where(and(
         isNull(schema.sightings.deletedAt),
