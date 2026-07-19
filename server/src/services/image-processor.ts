@@ -65,7 +65,7 @@ export async function processUpload(buffer: Buffer, originalName: string): Promi
 
   let exifRaw: any = {};
   try {
-    exifRaw = await exifr.parse(buffer, {
+    exifRaw = await (exifr.parse(buffer, {
       tiff: true,
       ifd0: true,
       exif: true,
@@ -76,7 +76,7 @@ export async function processUpload(buffer: Buffer, originalName: string): Promi
         'Make', 'Model', 'LensModel',
         'FNumber', 'ExposureTime', 'ISO', 'FocalLength',
       ],
-    }) ?? {};
+    }) as any) ?? {};
   } catch {
     exifRaw = {};
   }

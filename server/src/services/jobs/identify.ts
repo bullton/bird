@@ -73,7 +73,7 @@ export async function processIdentify(sightingId: number, _taskId: number) {
   const confidenceMax = top?.confidence ?? null;
   const status: 'pending' | 'confirmed' | 'corrected' | 'failed' =
     !top ? 'failed' :
-    confidenceMax !== null && confidenceMax >= 0.7 ? 'confirmed' :
+    (confidenceMax as number) !== null && (confidenceMax as number) >= 0.7 ? 'confirmed' :
     'pending';
 
   db.update(schema.sightings).set({
