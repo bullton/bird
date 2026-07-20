@@ -84,7 +84,7 @@ export async function settingsRoutes(app: FastifyInstance) {
           habitat: desc.habitat,
           diet: desc.diet,
           distribution: desc.distribution,
-          englishName: desc.english_name,
+          englishName: sp.scientificName,
           updatedAt: new Date().toISOString(),
         }).where(eq(schema.species.id, sp.id)).run();
         fixed++;

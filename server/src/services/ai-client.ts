@@ -24,7 +24,6 @@ export interface IdentifyResult {
 
 export interface SpeciesDescription {
   chinese_name?: string;
-  english_name: string;
   order_name: string;
   family_name: string;
   genus: string;
@@ -160,45 +159,39 @@ export async function callGenerateDescription(scientificName: string, chineseNam
   const cfg = loadConfig();
   if (!cfg.apiKey) throw new Error('AI API Key 未配置，请到系统设置填写');
 
-  const system = `你是鸟类学研究者。你需要根据提供的中文名或学名，查明该鸟类的完整分类学信息并撰写学术简介。
-规则：
-- order_name（目）、family_name（科）、genus（属）：必须使用中文名称，如"鸡形目"、"雉科"、"孔雀属"
-- conservation（保护等级）：格式为"中文名（代码）"，如"无危（LC）"、"易危（VU）"、"濒危（EN）"、"极危（CR）"、"近危（NT）"
-- english_name：直接使用传入的学名（scientific_name），不要查英文俗名
-- description、habitat、diet、distribution：80~150字中文描述
-- 所有字段不得返回空值或 null`;
+  const system = `你是一个严格的中文鸟类学数据库。只输出 JSON，禁止任何解释文字。
+规则（必须严格遵守）：
+1. order_name（目）：中文，如"鸡形目"、"雀形目"
+2. family_name（科）：中文，如"雉科"、"鸦科"
+3. genus（属）：中文，如"孔雀属"、"山雀属"
+4. conservation（保护等级）：格式"中文名（代码）"，如"无危（LC）"、"易危（VU）"、"濒危（EN）"、"极危（CR）"、"近危（NT）"、"数据缺失（DD）"、"未评估（NE）"
+5. chinese_name：中文名
+6. body_length_cm：数字（厘米）
+7. description：80~150字中文，形态特征+生态习性
+8. habitat：80~150字中文，典型栖息环境
+9. diet：80~150字中文，主要食物与觅食行为
+10. distribution：80~150字中文，地理分布
+11. 绝对不要出现英文，所有内容必须是中文
+12. 所有字段必须有值，不得为 null、空字符串或 undefined`;
 
-  const userText = `查找以下鸟类的完整分类信息：
-中文名：${chineseName || scientificName}
+  const userText = `根据以下信息，查找该鸟的完整分类学数据，只输出 JSON：
 学名：${scientificName}
+中文名：${chineseName || '无'}
 
-请通过你的知识库查找该鸟类的：
-1. 目（order_name）：必须中文，如"鸡形目"、"雀形目"
-2. 科（family_name）：必须中文，如"雉科"、"鸦科"
-3. 属（genus）：必须中文，如"孔雀属"、"山雀属"
-4. IUCN保护等级（conservation）：格式"中文名（代码）"，如"无危（LC）"、"易危（VU）"
-5. 成年体长（body_length_cm）：数字，单位厘米
-6. description（80~150字）：形态特征、生态习性，中文
-7. habitat（80~150字）：典型栖息环境，中文
-8. diet（80~150字）：主要食物与觅食行为，中文
-9. distribution（80~150字）：地理分布，中文
-
-严格输出完整 JSON，所有字段都必须有值：
+JSON 格式（所有字段必填）：
 {
-  "chinese_name": "该鸟的中文名",
-  "order_name": "目名（中文）",
-  "family_name": "科名（中文）",
-  "genus": "属名（中文）",
+  "chinese_name": "中文名",
+  "order_name": "目（中文）",
+  "family_name": "科（中文）",
+  "genus": "属（中文）",
   "conservation": "无危（LC）",
   "body_length_cm": 25,
-  "description": "...",
-  "habitat": "...",
-  "diet": "...",
-  "distribution": "..."
+  "description": "形态特征与生态习性，80~150字",
+  "habitat": "典型栖息环境，80~150字",
+  "diet": "主要食物与觅食行为，80~150字",
+  "distribution": "地理分布，80~150字"
 }`;
 
   const text = await callMessages(system, [{ role: 'user', content: userText }], cfg);
-  const desc = extractJson<SpeciesDescription>(text);
-  desc.english_name = scientificName;
-  return desc;
+  return extractJson<SpeciesDescription>(text);
 }

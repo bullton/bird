@@ -174,7 +174,7 @@ export async function speciesRoutes(app: FastifyInstance) {
 
     const desc = await callGenerateDescription(sp.scientificName, sp.chineseName ?? sp.scientificName);
     db.update(schema.species).set({
-      englishName: desc.english_name ?? null,
+      englishName: sp.scientificName,
       orderName: desc.order_name ?? null,
       familyName: desc.family_name ?? null,
       genus: desc.genus ?? null,
