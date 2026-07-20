@@ -73,7 +73,7 @@ export async function sightingRoutes(app: FastifyInstance) {
 
       const existing = db.select({ id: schema.sightings.id })
         .from(schema.sightings)
-        .where(eq(schema.sightings.photoHash, processed.hash))
+        .where(and(eq(schema.sightings.photoHash, processed.hash), isNull(schema.sightings.deletedAt)))
         .get();
       if (existing) {
         errors.push({ filename: part.filename, error: '照片已存在' });
