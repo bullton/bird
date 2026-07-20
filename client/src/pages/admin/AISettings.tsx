@@ -1,17 +1,39 @@
 import { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, Space, App, Typography, Alert, Switch, Tag, Skeleton } from 'antd';
+import { Card, Form, Input, Button, Space, App, Typography, Alert, Switch, Tag, Skeleton, Modal } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, statsApi } from '../../api';
-import { Eye, EyeOff, KeyRound, Save, RefreshCw } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Save, RefreshCw, Wand2 } from 'lucide-react';
 
 export function AISettings() {
   const qc = useQueryClient();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [showKey, setShowKey] = useState(false);
+  const [fixing, setFixing] = useState(false);
 
   const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.list });
   const { data: summary } = useQuery({ queryKey: ['stats', 'summary'], queryFn: statsApi.summary });
+
+  async function fixSpecies() {
+    Modal.confirm({
+      title: '确认修正物种数据',
+      content: '将重新调用 AI 生成所有物种的中文分类信息（目/科/属/保护级别等），是否继续？',
+      okText: '确认',
+      cancelText: '取消',
+      onOk: async () => {
+        setFixing(true);
+        try {
+          const result = await settingsApi.fixSpecies();
+          message.success(`完成！成功 ${result.fixed} 个，失败 ${result.errors} 个`);
+          qc.invalidateQueries({ queryKey: ['species'] });
+        } catch (e: any) {
+          message.error(e.message || '修正失败');
+        } finally {
+          setFixing(false);
+        }
+      },
+    });
+  }
 
   useEffect(() => {
     if (data) {
@@ -111,10 +133,20 @@ export function AISettings() {
       </Card>
 
       <Card title="数据库状态" style={{ marginTop: 16 }}>
-        <Space direction="vertical">
-          <span>总记录：{summary?.totalSightings ?? 0}</span>
-          <span>已识别物种：{summary?.speciesCount ?? 0}</span>
-          <span>用户数：{summary?.userCount ?? 0}</span>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Space>
+            <span>总记录：{summary?.totalSightings ?? 0}</span>
+            <span>已识别物种：{summary?.speciesCount ?? 0}</span>
+            <span>用户数：{summary?.userCount ?? 0}</span>
+          </Space>
+          <Button
+            icon={<Wand2 size={14} />}
+            loading={fixing}
+            onClick={fixSpecies}
+            style={{ marginTop: 8 }}
+          >
+            修正物种数据（目/科/属改中文，保护级别中英混排）
+          </Button>
         </Space>
       </Card>
     </div>

@@ -69,6 +69,7 @@ export const speciesApi = {
 export const settingsApi = {
   list: () => get<SettingItem[]>('/api/settings'),
   update: (key: string, value: string) => put<{ ok: true }>(`/api/settings/${key}`, { value }),
+  fixSpecies: () => post<{ ok: true; fixed: number; errors: number; total: number }>('/api/admin/fix-species'),
 };
 
 export const statsApi = {
