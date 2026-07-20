@@ -16,10 +16,20 @@ export async function processRegenerateDescription(sightingId: number, _taskId: 
   );
 
   db.update(schema.species).set({
+    chineseName: desc.chinese_name ?? null,
+    englishName: desc.english_name ?? null,
+    className: desc.class_name ?? null,
+    orderName: desc.order_name ?? null,
+    familyName: desc.family_name ?? null,
+    genus: desc.genus ?? null,
+    conservation: desc.conservation ?? null,
+    citesAppendix: desc.cites_appendix ?? null,
+    bodyLengthCm: desc.body_length_cm ?? null,
     description: desc.description,
     habitat: desc.habitat ?? null,
     diet: desc.diet ?? null,
     distribution: desc.distribution ?? null,
+    funFacts: desc.fun_facts ?? null,
     updatedAt: new Date().toISOString(),
   }).where(eq(schema.species.id, species.id)).run();
 

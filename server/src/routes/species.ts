@@ -11,14 +11,17 @@ const createSpeciesSchema = z.object({
   scientificName: z.string().min(1).max(200),
   chineseName: z.string().max(120).optional(),
   englishName: z.string().max(200).optional(),
+  className: z.string().max(120).optional(),
   orderName: z.string().max(120).optional(),
   familyName: z.string().max(120).optional(),
   genus: z.string().max(120).optional(),
-  conservation: z.string().max(20).optional(),
+  conservation: z.string().max(40).optional(),
+  citesAppendix: z.string().max(40).optional(),
   description: z.string().max(5000).optional(),
   habitat: z.string().max(2000).optional(),
   diet: z.string().max(2000).optional(),
   distribution: z.string().max(2000).optional(),
+  funFacts: z.string().max(2000).optional(),
   bodyLengthCm: z.number().optional(),
 });
 
@@ -174,16 +177,20 @@ export async function speciesRoutes(app: FastifyInstance) {
 
     const desc = await callGenerateDescription(sp.scientificName, sp.chineseName ?? sp.scientificName);
     db.update(schema.species).set({
-      englishName: sp.scientificName,
+      chineseName: desc.chinese_name ?? null,
+      englishName: desc.english_name ?? null,
+      className: desc.class_name ?? null,
       orderName: desc.order_name ?? null,
       familyName: desc.family_name ?? null,
       genus: desc.genus ?? null,
       conservation: desc.conservation ?? null,
+      citesAppendix: desc.cites_appendix ?? null,
       bodyLengthCm: desc.body_length_cm ?? null,
       description: desc.description,
       habitat: desc.habitat ?? null,
       diet: desc.diet ?? null,
       distribution: desc.distribution ?? null,
+      funFacts: desc.fun_facts ?? null,
       updatedAt: new Date().toISOString(),
     }).where(eq(schema.species.id, id)).run();
 

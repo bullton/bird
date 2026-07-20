@@ -37,15 +37,18 @@ export function SpeciesDetail() {
     setForm({
       chineseName: sp.chineseName || '',
       englishName: sp.englishName || '',
+      className: sp.className || '',
       orderName: sp.orderName || '',
       familyName: sp.familyName || '',
       genus: sp.genus || '',
       conservation: sp.conservation || '',
+      citesAppendix: sp.citesAppendix || '',
       bodyLengthCm: sp.bodyLengthCm ?? '',
       description: sp.description || '',
       habitat: sp.habitat || '',
       diet: sp.diet || '',
       distribution: sp.distribution || '',
+      funFacts: sp.funFacts || '',
     });
     setEditing(true);
   }
@@ -117,18 +120,23 @@ export function SpeciesDetail() {
             <Input addonBefore="中文名" value={form.chineseName} onChange={(e) => setForm({ ...form, chineseName: e.target.value })} />
             <Input addonBefore="英文名" value={form.englishName} onChange={(e) => setForm({ ...form, englishName: e.target.value })} />
             <Space>
-              <Input addonBefore="目" value={form.orderName} onChange={(e) => setForm({ ...form, orderName: e.target.value })} />
+              <Input addonBefore="纲" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} style={{ width: 200 }} />
+              <Input addonBefore="目" value={form.orderName} onChange={(e) => setForm({ ...form, orderName: e.target.value })} style={{ width: 200 }} />
+            </Space>
+            <Space>
               <Input addonBefore="科" value={form.familyName} onChange={(e) => setForm({ ...form, familyName: e.target.value })} />
               <Input addonBefore="属" value={form.genus} onChange={(e) => setForm({ ...form, genus: e.target.value })} />
             </Space>
             <Space>
-              <Input addonBefore="保护级别" value={form.conservation} onChange={(e) => setForm({ ...form, conservation: e.target.value })} style={{ width: 200 }} />
+              <Input addonBefore="保育状况" value={form.conservation} onChange={(e) => setForm({ ...form, conservation: e.target.value })} style={{ width: 200 }} />
+              <Input addonBefore="CITES" value={form.citesAppendix} onChange={(e) => setForm({ ...form, citesAppendix: e.target.value })} style={{ width: 200 }} />
               <Input addonBefore="体长(cm)" type="number" value={form.bodyLengthCm} onChange={(e) => setForm({ ...form, bodyLengthCm: e.target.value })} style={{ width: 200 }} />
             </Space>
             <Input.TextArea rows={4} placeholder="形态与习性描述" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <Input.TextArea rows={2} placeholder="栖息地" value={form.habitat} onChange={(e) => setForm({ ...form, habitat: e.target.value })} />
             <Input.TextArea rows={2} placeholder="食性" value={form.diet} onChange={(e) => setForm({ ...form, diet: e.target.value })} />
             <Input.TextArea rows={2} placeholder="分布" value={form.distribution} onChange={(e) => setForm({ ...form, distribution: e.target.value })} />
+            <Input.TextArea rows={3} placeholder="有趣鸟类知识" value={form.funFacts} onChange={(e) => setForm({ ...form, funFacts: e.target.value })} />
             <Space>
               <Button type="primary" icon={<Save size={14} />} onClick={save}>保存</Button>
               <Button icon={<X size={14} />} onClick={() => setEditing(false)}>取消</Button>
@@ -145,10 +153,12 @@ export function SpeciesDetail() {
           <Descriptions column={2} size="small" bordered>
             <Descriptions.Item label="学名"><i>{sp.scientificName}</i></Descriptions.Item>
             <Descriptions.Item label="英文名">{sp.englishName || '-'}</Descriptions.Item>
+            <Descriptions.Item label="纲">{sp.className || '-'}</Descriptions.Item>
             <Descriptions.Item label="目">{sp.orderName || '-'}</Descriptions.Item>
             <Descriptions.Item label="科">{sp.familyName || '-'}</Descriptions.Item>
             <Descriptions.Item label="属">{sp.genus || '-'}</Descriptions.Item>
-            <Descriptions.Item label="保护级别">{sp.conservation || '-'}</Descriptions.Item>
+            <Descriptions.Item label="保育状况">{sp.conservation || '-'}</Descriptions.Item>
+            <Descriptions.Item label="CITES">{sp.citesAppendix || '-'}</Descriptions.Item>
             <Descriptions.Item label="体长">{sp.bodyLengthCm ? `${sp.bodyLengthCm} cm` : '-'}</Descriptions.Item>
             <Descriptions.Item label="我的拍摄">
               {sp.stats?.total ?? 0} 张
@@ -181,6 +191,12 @@ export function SpeciesDetail() {
             <>
               <Typography.Title level={5}>分布</Typography.Title>
               <Typography.Paragraph>{sp.distribution}</Typography.Paragraph>
+            </>
+          )}
+          {sp.funFacts && (
+            <>
+              <Typography.Title level={5}>有趣鸟类知识</Typography.Title>
+              <Typography.Paragraph>{sp.funFacts}</Typography.Paragraph>
             </>
           )}
         </Card>

@@ -23,16 +23,20 @@ export interface IdentifyResult {
 }
 
 export interface SpeciesDescription {
-  chinese_name?: string;
+  chinese_name: string;
+  english_name: string;
+  class_name: string;
   order_name: string;
   family_name: string;
   genus: string;
   conservation: string;
+  cites_appendix: string;
   body_length_cm: number;
   description: string;
-  habitat?: string;
-  diet?: string;
-  distribution?: string;
+  habitat: string;
+  diet: string;
+  distribution: string;
+  fun_facts: string;
 }
 
 interface AIConfig {
@@ -159,37 +163,45 @@ export async function callGenerateDescription(scientificName: string, chineseNam
   const cfg = loadConfig();
   if (!cfg.apiKey) throw new Error('AI API Key 未配置，请到系统设置填写');
 
-  const system = `你是一个严格的中文鸟类学数据库。只输出 JSON，禁止任何解释文字。
-规则（必须严格遵守）：
-1. order_name（目）：中文，如"鸡形目"、"雀形目"
-2. family_name（科）：中文，如"雉科"、"鸦科"
-3. genus（属）：中文，如"孔雀属"、"山雀属"
-4. conservation（保护等级）：格式"中文名（代码）"，如"无危（LC）"、"易危（VU）"、"濒危（EN）"、"极危（CR）"、"近危（NT）"、"数据缺失（DD）"、"未评估（NE）"
-5. chinese_name：中文名
-6. body_length_cm：数字（厘米）
-7. description：80~150字中文，形态特征+生态习性
-8. habitat：80~150字中文，典型栖息环境
-9. diet：80~150字中文，主要食物与觅食行为
-10. distribution：80~150字中文，地理分布
-11. 绝对不要出现英文，所有内容必须是中文
-12. 所有字段必须有值，不得为 null、空字符串或 undefined`;
+  const system = `你是一个严格的中文鸟类学数据库。只输出 JSON，禁止任何解释文字或 markdown 包裹。
+规则（必须严格遵守，所有字段都必须有实际内容）：
+1. class_name（纲）：一般是"鸟纲"
+2. order_name（目）：中文，如"鸡形目"、"雀形目"、"鹦形目"
+3. family_name（科）：中文，如"雉科"、"鸦科"、"金刚鹦鹉科"
+4. genus（属）：中文，如"锦鸡属"、"亚马逊鹦鹉属"
+5. conservation（保育状况，IUCN 等级）：格式"中文名（代码）"，如"无危（LC）"、"易危（VU）"、"濒危（EN）"、"极危（CR）"、"近危（NT）"
+6. cites_appendix（CITES 附录）：如"附录 II"、"附录 I"、"未列入"
+7. chinese_name：中文名
+8. english_name：英文俗名
+9. body_length_cm：数字（厘米），成年鸟体长
+10. description（特征）：80~200字中文，形态特征（羽色、体型、雌雄差异）
+11. habitat（生境）：80~150字中文，典型栖息环境
+12. diet（食物）：80~150字中文，主要食物与觅食行为
+13. distribution（分布）：80~150字中文，地理分布与季节性迁徙
+14. fun_facts（有趣鸟类知识）：50~200字中文，关于该物种的有趣知识（寿命、习性、文化意义等）。如确实无特别有趣的事实，写"该物种的详细研究资料有待补充"
+15. 内容可以是中英文混合，专有名词可保留英文
+16. 所有字段都必须有值`;
 
-  const userText = `根据以下信息，查找该鸟的完整分类学数据，只输出 JSON：
+  const userText = `查找该鸟的完整分类学数据，只输出 JSON：
 学名：${scientificName}
 中文名：${chineseName || '无'}
 
-JSON 格式（所有字段必填）：
+JSON 格式（所有字段必填，不得为 null、空字符串或 undefined）：
 {
   "chinese_name": "中文名",
+  "english_name": "English Common Name",
+  "class_name": "鸟纲",
   "order_name": "目（中文）",
   "family_name": "科（中文）",
   "genus": "属（中文）",
   "conservation": "无危（LC）",
+  "cites_appendix": "附录 II",
   "body_length_cm": 25,
-  "description": "形态特征与生态习性，80~150字",
+  "description": "形态特征描述，80~200字",
   "habitat": "典型栖息环境，80~150字",
   "diet": "主要食物与觅食行为，80~150字",
-  "distribution": "地理分布，80~150字"
+  "distribution": "地理分布与季节性迁徙，80~150字",
+  "fun_facts": "有趣的鸟类知识，50~200字"
 }`;
 
   const text = await callMessages(system, [{ role: 'user', content: userText }], cfg);

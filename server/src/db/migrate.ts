@@ -24,14 +24,17 @@ const STATEMENTS = [
     scientific_name TEXT NOT NULL UNIQUE,
     chinese_name TEXT,
     english_name TEXT,
+    class_name TEXT,
     order_name TEXT,
     family_name TEXT,
     genus TEXT,
     conservation TEXT,
+    cites_appendix TEXT,
     description TEXT,
     habitat TEXT,
     diet TEXT,
     distribution TEXT,
+    fun_facts TEXT,
     body_length_cm REAL,
     extra_json TEXT NOT NULL DEFAULT '{}',
     created_via TEXT NOT NULL DEFAULT 'ai',
@@ -141,6 +144,20 @@ function migrate() {
       if (!cols.some((c) => c.name === 'path_original')) {
         sqlite.exec(`ALTER TABLE sightings ADD COLUMN path_original TEXT NOT NULL DEFAULT ''`);
         console.log('Added column sightings.path_original');
+      }
+    }
+
+    // 兼容老库：补 species 新分类字段
+    const spCols = sqlite.prepare("PRAGMA table_info('species')").all() as Array<{ name: string }>;
+    const addSpCols: Array<[string, string]> = [
+      ['class_name', 'TEXT'],
+      ['cites_appendix', 'TEXT'],
+      ['fun_facts', 'TEXT'],
+    ];
+    for (const [name, type] of addSpCols) {
+      if (!spCols.some((c) => c.name === name)) {
+        sqlite.exec(`ALTER TABLE species ADD COLUMN ${name} ${type}`);
+        console.log(`Added column species.${name}`);
       }
     }
 

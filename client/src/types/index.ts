@@ -66,10 +66,13 @@ export interface Species {
   scientificName: string;
   chineseName: string | null;
   englishName: string | null;
+  className: string | null;
   orderName: string | null;
   familyName: string | null;
   genus: string | null;
   conservation: string | null;
+  citesAppendix: string | null;
+  funFacts: string | null;
   bodyLengthCm: number | null;
   createdVia: string;
   sightingCount?: number;

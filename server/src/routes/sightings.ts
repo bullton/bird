@@ -32,16 +32,19 @@ async function upsertSpeciesByScientificName(scientificName: string): Promise<nu
   const inserted = db.insert(schema.species).values({
     scientificName,
     chineseName: desc.chinese_name ?? null,
-    englishName: scientificName,
+    englishName: desc.english_name ?? null,
+    className: desc.class_name ?? null,
     orderName: desc.order_name ?? null,
     familyName: desc.family_name ?? null,
     genus: desc.genus ?? null,
     conservation: desc.conservation ?? null,
+    citesAppendix: desc.cites_appendix ?? null,
     bodyLengthCm: desc.body_length_cm ?? null,
     description: desc.description,
     habitat: desc.habitat ?? null,
     diet: desc.diet ?? null,
     distribution: desc.distribution ?? null,
+    funFacts: desc.fun_facts ?? null,
     createdVia: 'ai',
   }).returning({ id: schema.species.id }).get();
   return inserted.id;
