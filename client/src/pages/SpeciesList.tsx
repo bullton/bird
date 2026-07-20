@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { Card, Input, Select, Typography, Empty, Skeleton, Space, Tag, Table, Button } from 'antd';
+import { Card, Input, Select, Typography, Empty, Skeleton, Space, Tag, Table, Button, App } from 'antd';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { speciesApi } from '../api';
-import { Search } from 'lucide-react';
+import { Search, Wand2 } from 'lucide-react';
 
 export function SpeciesList() {
+  const { message } = App.useApp();
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [family, setFamily] = useState<string | undefined>();
+  const [regenerating, setRegenerating] = useState<number | null>(null);
 
   const { data: families } = useQuery({
     queryKey: ['species', 'families'],
@@ -18,6 +21,19 @@ export function SpeciesList() {
     queryKey: ['species', { search, family, page: 1 }],
     queryFn: () => speciesApi.list({ q: search || undefined, family }),
   });
+
+  async function regenerate(id: number) {
+    setRegenerating(id);
+    try {
+      await speciesApi.regenerate(id);
+      message.success('已重新生成物种介绍');
+      qc.invalidateQueries({ queryKey: ['species'] });
+    } catch (e: any) {
+      message.error(e.message || '生成失败');
+    } finally {
+      setRegenerating(null);
+    }
+  }
 
   return (
     <div className="page-container">
@@ -83,8 +99,21 @@ export function SpeciesList() {
               },
               {
                 title: '操作',
-                width: 100,
-                render: (_, r) => <Link to={`/species/${r.id}`}><Button type="link" size="small">详情</Button></Link>,
+                width: 140,
+                render: (_, r) => (
+                  <Space>
+                    <Link to={`/species/${r.id}`}><Button type="link" size="small">详情</Button></Link>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<Wand2 size={12} />}
+                      loading={regenerating === r.id}
+                      onClick={() => regenerate(r.id)}
+                    >
+                      修正
+                    </Button>
+                  </Space>
+                ),
               },
             ]}
           />
