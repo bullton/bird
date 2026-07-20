@@ -4,6 +4,7 @@ import { db, schema } from '../db/client.js';
 import { eq } from 'drizzle-orm';
 import { encrypt, decrypt, isEncrypted } from '../utils/crypto.js';
 import { config } from '../config.js';
+import { callGenerateDescription } from '../services/ai-client.js';
 
 const SETTING_WHITELIST = new Set([
   'ai_provider',
@@ -64,6 +65,35 @@ export async function settingsRoutes(app: FastifyInstance) {
       out[r.key] = r.value ?? '';
     }
     return out;
+  });
+
+  app.post('/api/admin/fix-species', { preHandler: app.requireAdmin }, async (req, reply) => {
+    const allSpecies = db.select().from(schema.species).all();
+    let fixed = 0;
+    let errors = 0;
+    for (const sp of allSpecies) {
+      try {
+        const desc = await callGenerateDescription(sp.scientificName, sp.chineseName ?? sp.scientificName);
+        db.update(schema.species).set({
+          orderName: desc.order_name,
+          familyName: desc.family_name,
+          genus: desc.genus,
+          conservation: desc.conservation,
+          bodyLengthCm: desc.body_length_cm,
+          description: desc.description,
+          habitat: desc.habitat,
+          diet: desc.diet,
+          distribution: desc.distribution,
+          englishName: desc.english_name,
+          updatedAt: new Date().toISOString(),
+        }).where(eq(schema.species.id, sp.id)).run();
+        fixed++;
+      } catch (e) {
+        errors++;
+        console.error(`Failed to fix species ${sp.id} (${sp.scientificName}):`, e);
+      }
+    }
+    return { ok: true, fixed, errors, total: allSpecies.length };
   });
 }
 
