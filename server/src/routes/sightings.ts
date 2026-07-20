@@ -32,7 +32,7 @@ async function upsertSpeciesByScientificName(scientificName: string): Promise<nu
   const inserted = db.insert(schema.species).values({
     scientificName,
     chineseName: desc.chinese_name ?? null,
-    englishName: desc.english_name ?? null,
+    englishName: scientificName,
     orderName: desc.order_name ?? null,
     familyName: desc.family_name ?? null,
     genus: desc.genus ?? null,

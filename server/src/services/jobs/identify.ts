@@ -109,7 +109,7 @@ export async function processIdentify(sightingId: number, _taskId: number) {
       const inserted = db.insert(schema.species).values({
         scientificName: top!.scientific_name!,
         chineseName: top!.chinese_name ?? null,
-        englishName: top!.english_name ?? null,
+        englishName: top!.scientific_name!,
         orderName: top!.order_name ?? null,
         familyName: top!.family_name ?? null,
         genus: top!.genus ?? null,
