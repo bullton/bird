@@ -71,6 +71,15 @@ export async function sightingRoutes(app: FastifyInstance) {
         continue;
       }
 
+      const existing = db.select({ id: schema.sightings.id })
+        .from(schema.sightings)
+        .where(eq(schema.sightings.photoHash, processed.hash))
+        .get();
+      if (existing) {
+        errors.push({ filename: part.filename, error: '照片已存在' });
+        continue;
+      }
+
       const inserted = db.insert(schema.sightings).values({
         userId: req.authUser!.id,
         pathOriginal: processed.originalRel,
