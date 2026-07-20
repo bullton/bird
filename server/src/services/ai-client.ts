@@ -160,28 +160,26 @@ export async function callGenerateDescription(scientificName: string, chineseNam
   const cfg = loadConfig();
   if (!cfg.apiKey) throw new Error('AI API Key 未配置，请到系统设置填写');
 
-  const system = `你是鸟类学研究者。你需要根据提供的中文名或学名，查明该鸟类的完整分类学信息并撰写学术简介。所有字段（english_name、order_name、family_name、genus、conservation、body_length_cm、description、habitat、diet、distribution）都必须填写，不得返回空值或 null。如果不确定某字段，应根据该物种的公开学术资料给出合理值。`;
+  const system = `你是鸟类学研究者。你需要根据提供的中文名或学名，查明该鸟类的完整分类学信息并撰写学术简介。所有字段（order_name、family_name、genus、conservation、body_length_cm、description、habitat、diet、distribution）都必须填写，不得返回空值或 null。如果不确定某字段，应根据该物种的公开学术资料给出合理值。english_name 字段直接使用传入的学名（scientific_name），无需额外查询。`;
 
   const userText = `查找以下鸟类的完整分类信息：
 中文名：${chineseName || scientificName}
-学名（已知时）：${scientificName}
+学名：${scientificName}
 
 请通过你的知识库查找该鸟类的：
-1. 英文名（english_name）
-2. 目（order_name），如鸡形目、雀形目等
-3. 科（family_name），如雉科、鸦科等
-4. 属（genus）
-5. IUCN保护等级（conservation）：LC/NT/VU/EN/CR
-6. 成年体长（body_length_cm）：数字，单位厘米
-7. description（150~250字）：形态特征、生态习性
-8. habitat（80~150字）：典型栖息环境
-9. diet（80~150字）：主要食物与觅食行为
-10. distribution（80~150字）：地理分布
+1. 目（order_name），如鸡形目、雀形目等
+2. 科（family_name），如雉科、鸦科等
+3. 属（genus）
+4. IUCN保护等级（conservation）：LC/NT/VU/EN/CR
+5. 成年体长（body_length_cm）：数字，单位厘米
+6. description（150~250字）：形态特征、生态习性
+7. habitat（80~150字）：典型栖息环境
+8. diet（80~150字）：主要食物与觅食行为
+9. distribution（80~150字）：地理分布
 
 严格输出完整 JSON，所有字段都必须有值：
 {
   "chinese_name": "该鸟的中文名",
-  "english_name": "英文俗名",
   "order_name": "目名",
   "family_name": "科名",
   "genus": "属名",
@@ -194,5 +192,7 @@ export async function callGenerateDescription(scientificName: string, chineseNam
 }`;
 
   const text = await callMessages(system, [{ role: 'user', content: userText }], cfg);
-  return extractJson<SpeciesDescription>(text);
+  const desc = extractJson<SpeciesDescription>(text);
+  desc.english_name = scientificName;
+  return desc;
 }
