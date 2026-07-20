@@ -93,6 +93,78 @@ pm2 logs birdlog
 ./scripts/backup.sh
 ```
 
+## 服务器部署（180）
+
+### 首次部署
+
+```bash
+# 1. 上传源码到 /home/bullton/bird（通过 git clone 或 scp）
+
+# 2. 安装依赖
+cd /home/bullton/bird/server && npm install
+cd /home/bullton/bird/client && npm install
+
+# 3. 配置 .env（从项目根目录的 .env.example 复制）
+# 关键变量：
+#   BIRDLOG_DB_PATH=/home/bullton/bird/data/birdlog.db
+#   BIRDLOG_PHOTOS_DIR=/home/bullton/bird/data/photos
+#   BIRDLOG_STATIC_DIR=/home/bullton/bird/client/dist
+#   BIRDLOG_HOST=0.0.0.0
+#   PORT=3005
+
+# 4. 编译服务端 + 构建前端
+cd /home/bullton/bird/server && npm run build
+cd /home/bullton/bird/client && npm run build
+
+# 5. 启动（直接 node 方式，不依赖 PM2）
+cd /home/bullton/bird/server
+nohup node dist/index.js </dev/null >/tmp/bird.log 2>&1 &
+```
+
+### 拉取最新代码并完整重新部署（重要！）
+
+每次代码更新后，必须执行以下完整流程，**否则可能出现旧进程占端口导致新服务无法启动**：
+
+```bash
+# 1. 杀掉旧进程（关键！否则端口占用 EADDRINUSE）
+pkill -9 -f "node dist/index.js"
+# 确认端口已释放
+lsof -ti:3005 | xargs kill -9 2>/dev/null || echo "端口已释放"
+
+# 2. 删除旧的编译产物（必须，否则加载的是旧代码）
+rm -rf /home/bullton/bird/server/dist
+rm -rf /home/bullton/bird/client/dist
+
+# 3. 拉取最新代码
+cd /home/bullton/bird && git pull
+
+# 4. 重新编译服务端 + 构建前端
+cd /home/bullton/bird/server && npm run build
+cd /home/bullton/bird/client && npm run build
+
+# 5. 确认编译产物存在
+ls /home/bullton/bird/server/dist/
+ls /home/bullton/bird/client/dist/
+
+# 6. 启动新服务
+cd /home/bullton/bird/server
+nohup node dist/index.js </dev/null >/tmp/bird.log 2>&1 &
+
+# 7. 验证启动成功
+curl http://localhost:3005/api/health
+# 期望返回：{"ok":true,"version":"0.1.0"}
+```
+
+### 部署检查清单
+
+如果访问页面一直"加载中"，按以下顺序排查：
+
+1. `curl http://localhost:3005/api/health` — 服务是否正常运行
+2. `lsof -ti:3005` — 是否有多个进程占用端口（多进程是病根，必须杀干净）
+3. `tail /tmp/bird.log` — 查看服务端错误日志
+4. 浏览器 F12 → Network — 查看哪个请求失败或 pending
+5. 确认 `BIRDLOG_STATIC_DIR` 指向正确的 `client/dist` 目录，且 `index.html` 存在
+
 ## 目录结构
 
 ```
