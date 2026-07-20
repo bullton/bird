@@ -21,17 +21,41 @@ const confirmSchema = z.object({
   scientificName: z.string().max(200).optional(),
 });
 
-async function upsertSpeciesByScientificName(scientificName: string): Promise<number> {
-  const existing = db.select({ id: schema.species.id })
-    .from(schema.species)
-    .where(eq(schema.species.scientificName, scientificName))
-    .get();
+async function upsertSpeciesByScientificName(userInput: string): Promise<number> {
+  // 先按 scientificName 或 chineseName 查找已有物种
+  const existing =
+    db.select({ id: schema.species.id })
+      .from(schema.species)
+      .where(eq(schema.species.scientificName, userInput))
+      .get() ??
+    db.select({ id: schema.species.id })
+      .from(schema.species)
+      .where(eq(schema.species.chineseName, userInput))
+      .get();
   if (existing) return existing.id;
 
-  const desc = await callGenerateDescription(scientificName, scientificName);
+  // 调用 AI：输入可能是中文名也可能是学名，AI 需要识别并给出完整数据
+  const desc = await callGenerateDescription(userInput, userInput);
+
+  // 用 AI 返回的标准拉丁学名（关键！不能直接用用户输入作学名）
+  const sci = (desc.scientific_name && desc.scientific_name.trim()) || userInput;
+  const cn = (desc.chinese_name && desc.chinese_name.trim()) || userInput;
+
+  // 双重去重：用 AI 返回的学名/中文名再查一次
+  const dup =
+    db.select({ id: schema.species.id })
+      .from(schema.species)
+      .where(eq(schema.species.scientificName, sci))
+      .get() ??
+    db.select({ id: schema.species.id })
+      .from(schema.species)
+      .where(eq(schema.species.chineseName, cn))
+      .get();
+  if (dup) return dup.id;
+
   const inserted = db.insert(schema.species).values({
-    scientificName,
-    chineseName: desc.chinese_name ?? null,
+    scientificName: sci,
+    chineseName: cn,
     englishName: desc.english_name ?? null,
     className: desc.class_name ?? null,
     orderName: desc.order_name ?? null,

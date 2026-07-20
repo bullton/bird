@@ -175,9 +175,21 @@ export async function speciesRoutes(app: FastifyInstance) {
     const sp = db.select().from(schema.species).where(eq(schema.species.id, id)).get();
     if (!sp) return reply.code(404).send({ error: 'Not found' });
 
-    const desc = await callGenerateDescription(sp.scientificName, sp.chineseName ?? sp.scientificName);
+    // 智能选择输入：优先用看起来像拉丁学名的字段（只含 ASCII 字母、空格、点和连字符）
+    const isLatin = (s: string | null | undefined) => !!s && /^[A-Za-z][A-Za-z\s.\-]+$/.test(s.trim());
+    const sciInput = isLatin(sp.scientificName) ? sp.scientificName : null;
+    const cnInput = sp.chineseName || (isLatin(sp.scientificName) ? null : sp.scientificName);
+    const queryInput = sciInput || cnInput || sp.scientificName;
+
+    const desc = await callGenerateDescription(queryInput, cnInput ?? queryInput);
+
+    // 用 AI 返回的标准化学名更新（修正历史脏数据）
+    const newSci = (desc.scientific_name && desc.scientific_name.trim()) || sp.scientificName;
+    const newCn = (desc.chinese_name && desc.chinese_name.trim()) || sp.chineseName || sp.scientificName;
+
     db.update(schema.species).set({
-      chineseName: desc.chinese_name ?? null,
+      scientificName: newSci,
+      chineseName: newCn,
       englishName: desc.english_name ?? null,
       className: desc.class_name ?? null,
       orderName: desc.order_name ?? null,
@@ -194,7 +206,7 @@ export async function speciesRoutes(app: FastifyInstance) {
       updatedAt: new Date().toISOString(),
     }).where(eq(schema.species.id, id)).run();
 
-    return { ok: true };
+    return { ok: true, scientificName: newSci, chineseName: newCn };
   });
 
   app.get('/api/species/stats/families', async () => {

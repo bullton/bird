@@ -25,6 +25,7 @@ export interface IdentifyResult {
 export interface SpeciesDescription {
   chinese_name: string;
   english_name: string;
+  scientific_name: string;
   class_name: string;
   order_name: string;
   family_name: string;
@@ -165,31 +166,39 @@ export async function callGenerateDescription(scientificName: string, chineseNam
 
   const system = `你是一个严格的中文鸟类学数据库。只输出 JSON，禁止任何解释文字或 markdown 包裹。
 规则（必须严格遵守，所有字段都必须有实际内容）：
-1. class_name（纲）：一般是"鸟纲"
-2. order_name（目）：中文，如"鸡形目"、"雀形目"、"鹦形目"
-3. family_name（科）：中文，如"雉科"、"鸦科"、"金刚鹦鹉科"
-4. genus（属）：中文，如"锦鸡属"、"亚马逊鹦鹉属"
-5. conservation（保育状况，IUCN 等级）：格式"中文名（代码）"，如"无危（LC）"、"易危（VU）"、"濒危（EN）"、"极危（CR）"、"近危（NT）"
-6. cites_appendix（CITES 附录）：如"附录 II"、"附录 I"、"未列入"
-7. chinese_name：中文名
-8. english_name：英文俗名
-9. body_length_cm：数字（厘米），成年鸟体长
-10. description（特征）：80~200字中文，形态特征（羽色、体型、雌雄差异）
-11. habitat（生境）：80~150字中文，典型栖息环境
-12. diet（食物）：80~150字中文，主要食物与觅食行为
-13. distribution（分布）：80~150字中文，地理分布与季节性迁徙
-14. fun_facts（有趣鸟类知识）：50~200字中文，关于该物种的有趣知识（寿命、习性、文化意义等）。如确实无特别有趣的事实，写"该物种的详细研究资料有待补充"
-15. 内容可以是中英文混合，专有名词可保留英文
-16. 所有字段都必须有值`;
+1. scientific_name（拉丁学名）：必须是该物种的真实二名法拉丁学名（如 "Amazona albifrons"）。如果输入是中文名，你必须根据你的知识库推断出对应的标准拉丁学名——绝对不要直接用中文作为学名
+2. class_name（纲）：一般是"鸟纲"
+3. order_name（目）：中文，如"鸡形目"、"雀形目"、"鹦形目"
+4. family_name（科）：中文，如"雉科"、"鸦科"、"金刚鹦鹉科"
+5. genus（属）：中文（如"锦鸡属"、"亚马逊鹦鹉属"）。如果物种是 Amazona 属（亚马逊鹦鹉），必须写"亚马逊鹦鹉属"
+6. conservation（保育状况，IUCN 等级）：格式"中文名（代码）"，如"无危（LC）"、"易危（VU）"、"濒危（EN）"、"极危（CR）"、"近危（NT）"
+7. cites_appendix（CITES 附录）：如"附录 II"、"附录 I"、"未列入"
+8. chinese_name：标准中文名
+9. english_name：英文俗名
+10. body_length_cm：数字（厘米），成年鸟体长
+11. description（特征）：80~200字中文，形态特征（羽色、体型、雌雄差异）
+12. habitat（生境）：80~150字中文，典型栖息环境
+13. diet（食物）：80~150字中文，主要食物与觅食行为
+14. distribution（分布）：80~150字中文，地理分布与季节性迁徙
+15. fun_facts（有趣鸟类知识）：50~200字中文，关于该物种的有趣知识（寿命、习性、文化意义等）
+16. 内容可以是中英文混合，专有名词可保留英文
+17. 所有字段都必须有值`;
 
-  const userText = `查找该鸟的完整分类学数据，只输出 JSON：
-学名：${scientificName}
-中文名：${chineseName || '无'}
+  const userText = `查找该鸟的完整分类学数据，必须给出真实的标准拉丁二名法学名，只输出 JSON：
+
+查询输入（可能是中文名，也可能是拉丁学名）：
+${scientificName === chineseName || !chineseName ? `物种名：${scientificName}` : `学名：${scientificName}\n中文名：${chineseName}`}
+
+特别提醒：
+- 如果输入是中文名（例如"白额绿鹦哥"），你必须根据你的鸟类学知识给出对应的标准拉丁学名（应该是 "Amazona albifrons"）
+- 绝对不要把中文名当作拉丁学名返回
+- 属名（genus）应该是该物种真实所属的属的中文名（不是"白额绿鹦哥属"这种生造的中文）
 
 JSON 格式（所有字段必填，不得为 null、空字符串或 undefined）：
 {
-  "chinese_name": "中文名",
+  "chinese_name": "标准中文名",
   "english_name": "English Common Name",
+  "scientific_name": "Genus species",
   "class_name": "鸟纲",
   "order_name": "目（中文）",
   "family_name": "科（中文）",
