@@ -78,3 +78,39 @@ export const statsApi = {
   familyDistribution: () => get<Array<{ familyName: string; orderName: string; count: number }>>('/api/stats/family-distribution'),
   topSpecies: () => get<Array<{ speciesId: number; scientificName: string; chineseName: string | null; englishName: string | null; familyName: string | null; count: number }>>('/api/stats/top-species'),
 };
+
+export interface BirdsDBInfo {
+  version: string;
+  total: number;
+  source: string;
+  lastUpdated: string;
+}
+
+export interface BirdsDBSpecies {
+  id: number;
+  chineseName: string;
+  englishName: string;
+  scientificName: string;
+  orderName: string;
+  familyName: string;
+  genus: string;
+  conservation: string;
+  bodyLengthCm: number;
+}
+
+export interface BirdsDBPaginated {
+  items: BirdsDBSpecies[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export const birdsDbApi = {
+  info: () => get<BirdsDBInfo>('/api/birds-db/info'),
+  list: (q: { q?: string; family?: string; order?: string; page?: number } = {}) =>
+    get<BirdsDBPaginated>('/api/birds-db/species', q),
+  get: (id: number) => get<BirdsDBSpecies>(`/api/birds-db/species/${id}`),
+  lookup: (name: string) => get<BirdsDBSpecies>(`/api/birds-db/lookup?name=${encodeURIComponent(name)}`),
+  families: () => get<Array<{ familyName: string; orderName: string; count: number }>>('/api/birds-db/families'),
+  orders: () => get<string[]>('/api/birds-db/orders'),
+};

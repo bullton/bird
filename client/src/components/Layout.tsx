@@ -3,6 +3,7 @@ import { Layout as AntLayout, Menu, Avatar, Dropdown, Typography, Tag } from 'an
 import {
   Home, Upload, Calendar, Grid3x3, Bird, BarChart3,
   Users, Settings as SettingsIcon, LogOut, ChevronDown,
+  BookOpen,
 } from 'lucide-react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../stores/auth';
@@ -22,6 +23,7 @@ export function Layout() {
     { key: '/gallery', icon: <Grid3x3 size={16} />, label: <Link to="/gallery">图库</Link> },
     { key: '/species', icon: <Bird size={16} />, label: <Link to="/species">我的图鉴</Link> },
     { key: '/stats', icon: <BarChart3 size={16} />, label: <Link to="/stats">统计</Link> },
+    { key: '/birds-db', icon: <BookOpen size={16} />, label: <Link to="/birds-db">鸟类数据库</Link> },
   ];
 
   const adminItems = [

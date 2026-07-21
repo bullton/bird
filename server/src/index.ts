@@ -14,6 +14,7 @@ import { sightingRoutes } from './routes/sightings.js';
 import { speciesRoutes } from './routes/species.js';
 import { settingsRoutes } from './routes/settings.js';
 import { statsRoutes } from './routes/stats.js';
+import { birdsRoutes } from './routes/birds.js';
 import { db, schema } from './db/client.js';
 import { eq } from 'drizzle-orm';
 import { startTaskWorker, stopTaskWorker } from './services/task-worker.js';
@@ -107,6 +108,7 @@ export async function buildApp() {
   await app.register(speciesRoutes);
   await app.register(settingsRoutes);
   await app.register(statsRoutes);
+  await app.register(birdsRoutes);
 
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith('/api/')) {

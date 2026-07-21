@@ -11,6 +11,7 @@ import { Gallery } from './pages/Gallery';
 import { SpeciesList } from './pages/SpeciesList';
 import { SpeciesDetail } from './pages/SpeciesDetail';
 import { Stats } from './pages/Stats';
+import { BirdsDB } from './pages/BirdsDB';
 import { Users } from './pages/admin/Users';
 import { AISettings } from './pages/admin/AISettings';
 import { useAuth } from './stores/auth';
@@ -60,6 +61,7 @@ function App() {
           <Route path="/species" element={<SpeciesList />} />
           <Route path="/species/:id" element={<SpeciesDetail />} />
           <Route path="/stats" element={<Stats />} />
+          <Route path="/birds-db" element={<BirdsDB />} />
 
           <Route path="/admin/users" element={<RequireAdmin><Users /></RequireAdmin>} />
           <Route path="/admin/ai" element={<RequireAdmin><AISettings /></RequireAdmin>} />
