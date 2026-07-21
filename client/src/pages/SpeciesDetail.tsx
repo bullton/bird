@@ -35,8 +35,8 @@ export function SpeciesDetail() {
   function startEdit() {
     if (!sp) return;
     setForm({
+      scientificName: sp.scientificName || '',
       chineseName: sp.chineseName || '',
-      englishName: sp.englishName || '',
       className: sp.className || '',
       orderName: sp.orderName || '',
       familyName: sp.familyName || '',
@@ -56,8 +56,20 @@ export function SpeciesDetail() {
   async function save() {
     try {
       await speciesApi.update(speciesId, {
-        ...form,
-        bodyLengthCm: form.bodyLengthCm === '' ? undefined : Number(form.bodyLengthCm),
+        scientificName: form.scientificName,
+        chineseName: form.chineseName,
+        className: form.className || null,
+        orderName: form.orderName || null,
+        familyName: form.familyName || null,
+        genus: form.genus || null,
+        conservation: form.conservation || null,
+        citesAppendix: form.citesAppendix || null,
+        bodyLengthCm: form.bodyLengthCm === '' ? null : Number(form.bodyLengthCm),
+        description: form.description || null,
+        habitat: form.habitat || null,
+        diet: form.diet || null,
+        distribution: form.distribution || null,
+        funFacts: form.funFacts || null,
       });
       message.success('已保存');
       setEditing(false);
@@ -117,8 +129,8 @@ export function SpeciesDetail() {
       {editing ? (
         <Card>
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Input addonBefore="学名" value={form.scientificName} onChange={(e) => setForm({ ...form, scientificName: e.target.value })} />
             <Input addonBefore="中文名" value={form.chineseName} onChange={(e) => setForm({ ...form, chineseName: e.target.value })} />
-            <Input addonBefore="英文名" value={form.englishName} onChange={(e) => setForm({ ...form, englishName: e.target.value })} />
             <Space>
               <Input addonBefore="纲" value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} style={{ width: 200 }} />
               <Input addonBefore="目" value={form.orderName} onChange={(e) => setForm({ ...form, orderName: e.target.value })} style={{ width: 200 }} />
@@ -152,7 +164,6 @@ export function SpeciesDetail() {
         )}>
           <Descriptions column={2} size="small" bordered>
             <Descriptions.Item label="学名"><i>{sp.scientificName}</i></Descriptions.Item>
-            <Descriptions.Item label="英文名">{sp.englishName || '-'}</Descriptions.Item>
             <Descriptions.Item label="纲">{sp.className || '-'}</Descriptions.Item>
             <Descriptions.Item label="目">{sp.orderName || '-'}</Descriptions.Item>
             <Descriptions.Item label="科">{sp.familyName || '-'}</Descriptions.Item>
