@@ -167,32 +167,38 @@ export async function callGenerateDescription(scientificName: string, chineseNam
   const system = `你是一个严格的中文鸟类学数据库。只输出 JSON，禁止任何解释文字或 markdown 包裹。
 规则（必须严格遵守，所有字段都必须有实际内容）：
 1. scientific_name（拉丁学名）：必须是该物种的真实二名法拉丁学名（如 "Amazona albifrons"）。如果输入是中文名，你必须根据你的知识库推断出对应的标准拉丁学名——绝对不要直接用中文作为学名
-2. class_name（纲）：一般是"鸟纲"
-3. order_name（目）：中文，如"鸡形目"、"雀形目"、"鹦形目"
-4. family_name（科）：中文，如"雉科"、"鸦科"、"金刚鹦鹉科"
-5. genus（属）：中文（如"锦鸡属"、"亚马逊鹦鹉属"）。如果物种是 Amazona 属（亚马逊鹦鹉），必须写"亚马逊鹦鹉属"
-6. conservation（保育状况，IUCN 等级）：格式"中文名（代码）"，如"无危（LC）"、"易危（VU）"、"濒危（EN）"、"极危（CR）"、"近危（NT）"
-7. cites_appendix（CITES 附录）：如"附录 II"、"附录 I"、"未列入"
-8. chinese_name：标准中文名
-9. english_name：英文俗名
-10. body_length_cm：数字（厘米），成年鸟体长
-11. description（特征）：80~200字中文，形态特征（羽色、体型、雌雄差异）
-12. habitat（生境）：80~150字中文，典型栖息环境
-13. diet（食物）：80~150字中文，主要食物与觅食行为
-14. distribution（分布）：80~150字中文，地理分布与季节性迁徙
-15. fun_facts（有趣鸟类知识）：50~200字中文，关于该物种的有趣知识（寿命、习性、文化意义等）
-16. 内容可以是中英文混合，专有名词可保留英文
-17. 所有字段都必须有值`;
+2. 严格区分相似物种名：例如"斑皇鸠"（Ducula bracteata）和"点斑皇鸠"（Ducula goliath）是两个不同物种，绝不能混淆
+3. class_name（纲）：一般是"鸟纲"
+4. order_name（目）：中文，如"鸡形目"、"雀形目"、"鹦形目"
+5. family_name（科）：中文，如"雉科"、"鸦科"、"金刚鹦鹉科"
+6. genus（属）：中文（如"锦鸡属"、"亚马逊鹦鹉属"）。如果物种是 Amazona 属（亚马逊鹦鹉），必须写"亚马逊鹦鹉属"
+7. conservation（保育状况，IUCN 等级）：格式"中文名（代码）"，如"无危（LC）"、"易危（VU）"、"濒危（EN）"、"极危（CR）"、"近危（NT）"
+8. cites_appendix（CITES 附录）：如"附录 II"、"附录 I"、"未列入"
+9. chinese_name：标准中文名
+10. english_name：英文俗名
+11. body_length_cm：数字（厘米），成年鸟体长
+12. description（特征）：80~200字中文，形态特征（羽色、体型、雌雄差异）
+13. habitat（生境）：80~150字中文，典型栖息环境
+14. diet（食物）：80~150字中文，主要食物与觅食行为
+15. distribution（分布）：80~150字中文，地理分布与季节性迁徙
+16. fun_facts（有趣鸟类知识）：50~200字中文，关于该物种的有趣知识（寿命、习性、文化意义等）
+17. 内容可以是中英文混合，专有名词可保留英文
+18. 所有字段都必须有值`;
 
-  const userText = `查找该鸟的完整分类学数据，必须给出真实的标准拉丁二名法学名，只输出 JSON：
+  const userText = `查找该鸟的完整分类学数据，只输出 JSON：
 
-查询输入（可能是中文名，也可能是拉丁学名）：
+查询输入：
 ${scientificName === chineseName || !chineseName ? `物种名：${scientificName}` : `学名：${scientificName}\n中文名：${chineseName}`}
 
+【关键】以下物种名高度相似，必须严格区分，绝对不能混淆：
+- "斑皇鸠"（学名：Ducula bracteata）和"点斑皇鸠"（学名：Ducula goliath）是不同物种
+- "白鹭"（学名：Egretta garzetta）和"大白鹭"（学名：Ardea alba）是不同物种
+- "山雀"和"山雀属"下不同种不可混用
+你必须根据上述学名和中文名，查找对应的准确信息，不要张冠李戴。
+
 特别提醒：
-- 如果输入是中文名（例如"白额绿鹦哥"），你必须根据你的鸟类学知识给出对应的标准拉丁学名（应该是 "Amazona albifrons"）
-- 绝对不要把中文名当作拉丁学名返回
-- 属名（genus）应该是该物种真实所属的属的中文名（不是"白额绿鹦哥属"这种生造的中文）
+- 如果输入是中文名，你必须根据鸟类学知识推断出对应的标准拉丁学名，绝对不能把中文名直接当作学名
+- 属（genus）必须是该物种真实所属的属的中文名
 
 JSON 格式（所有字段必填，不得为 null、空字符串或 undefined）：
 {
