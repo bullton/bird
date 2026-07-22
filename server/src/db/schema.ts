@@ -33,6 +33,7 @@ export const species = sqliteTable('species', {
   funFacts:        text('fun_facts'),
   bodyLengthCm:    real('body_length_cm'),
   extraJson:       text('extra_json').notNull().default('{}'),
+  dbMatchedFields: text('db_matched_fields').notNull().default('[]'),
   createdVia:      text('created_via').notNull().default('ai'),
   createdAt:       text('created_at').notNull().default(sql`(datetime('now'))`),
   updatedAt:       text('updated_at'),

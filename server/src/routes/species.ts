@@ -4,6 +4,7 @@ import { db, schema } from '../db/client.js';
 import { and, count, desc, eq, isNull, like, or, sql } from 'drizzle-orm';
 import { fileUrl } from '../services/image-processor.js';
 import { callGenerateDescription } from '../services/ai-client.js';
+import type { LockableField } from '../services/local-bird-db.js';
 
 const PAGE_SIZE = 50;
 
@@ -175,6 +176,15 @@ export async function speciesRoutes(app: FastifyInstance) {
     const sp = db.select().from(schema.species).where(eq(schema.species.id, id)).get();
     if (!sp) return reply.code(404).send({ error: 'Not found' });
 
+    const lockedFields = (() => {
+      try {
+        return JSON.parse((sp as { dbMatchedFields?: string }).dbMatchedFields || '[]') as LockableField[];
+      } catch {
+        return [] as LockableField[];
+      }
+    })();
+    const isLocked = (field: LockableField) => lockedFields.includes(field);
+
     // 智能选择输入：优先用看起来像拉丁学名的字段（只含 ASCII 字母、空格、点和连字符）
     const isLatin = (s: string | null | undefined) => !!s && /^[A-Za-z][A-Za-z\s.\-]+$/.test(s.trim());
     const sciInput = isLatin(sp.scientificName) ? sp.scientificName : null;
@@ -183,21 +193,20 @@ export async function speciesRoutes(app: FastifyInstance) {
 
     const desc = await callGenerateDescription(queryInput, cnInput ?? queryInput);
 
-    // 用 AI 返回的标准化学名更新（修正历史脏数据）
     const newSci = (desc.scientific_name && desc.scientific_name.trim()) || sp.scientificName;
     const newCn = (desc.chinese_name && desc.chinese_name.trim()) || sp.chineseName || sp.scientificName;
 
     db.update(schema.species).set({
       scientificName: newSci,
-      chineseName: newCn,
-      englishName: desc.english_name ?? null,
+      chineseName: isLocked('chineseName') ? sp.chineseName : (newCn || sp.chineseName),
+      englishName: isLocked('englishName') ? sp.englishName : (desc.english_name ?? null),
       className: desc.class_name ?? null,
-      orderName: desc.order_name ?? null,
-      familyName: desc.family_name ?? null,
-      genus: desc.genus ?? null,
-      conservation: desc.conservation ?? null,
+      orderName: isLocked('orderName') ? sp.orderName : (desc.order_name ?? null),
+      familyName: isLocked('familyName') ? sp.familyName : (desc.family_name ?? null),
+      genus: isLocked('genus') ? sp.genus : (desc.genus ?? null),
+      conservation: isLocked('conservation') ? sp.conservation : (desc.conservation ?? null),
       citesAppendix: desc.cites_appendix ?? null,
-      bodyLengthCm: desc.body_length_cm ?? null,
+      bodyLengthCm: isLocked('bodyLengthCm') ? sp.bodyLengthCm : (desc.body_length_cm ?? null),
       description: desc.description,
       habitat: desc.habitat ?? null,
       diet: desc.diet ?? null,

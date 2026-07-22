@@ -5,6 +5,7 @@ import { eq, or, like } from 'drizzle-orm';
 import { config } from '../../config.js';
 import { callIdentify, callGenerateDescription } from '../ai-client.js';
 import type { Candidate } from '../ai-client.js';
+import { findLocalBirdBySciOrChinese, getLockedFieldsFromLocalBird, type LockableField } from '../local-bird-db.js';
 
 export async function cleanupAiImage(sightingId: number) {
   const row = db.select({ pathAi: schema.sightings.pathAi })
@@ -106,17 +107,50 @@ export async function processIdentify(sightingId: number, _taskId: number) {
     if (matched) {
       speciesId = matched.id;
     } else {
-      const inserted = db.insert(schema.species).values({
-        scientificName: top!.scientific_name!,
-        chineseName: top!.chinese_name ?? null,
-        englishName: top!.scientific_name!,
-        orderName: top!.order_name ?? null,
-        familyName: top!.family_name ?? null,
-        genus: top!.genus ?? null,
-        conservation: top!.conservation ?? null,
-        bodyLengthCm: top!.body_length_cm ?? null,
-        createdVia: 'ai',
-      }).returning({ id: schema.species.id }).get();
+      const localBird = findLocalBirdBySciOrChinese(top!.scientific_name!, top!.chinese_name);
+      let insertValues: {
+        scientificName: string;
+        chineseName: string | null;
+        englishName: string | null;
+        orderName: string | null;
+        familyName: string | null;
+        genus: string | null;
+        conservation: string | null;
+        bodyLengthCm: number | null;
+        createdVia: string;
+        dbMatchedFields?: string;
+      };
+
+      if (localBird) {
+        const lockedFields = getLockedFieldsFromLocalBird(localBird);
+        insertValues = {
+          scientificName: top!.scientific_name!,
+          chineseName: localBird.chineseName || top!.chinese_name || null,
+          englishName: localBird.englishName || null,
+          orderName: localBird.orderName || top!.order_name || null,
+          familyName: localBird.familyName || top!.family_name || null,
+          genus: localBird.genus || top!.genus || null,
+          conservation: localBird.conservation || top!.conservation || null,
+          bodyLengthCm: localBird.bodyLengthCm || top!.body_length_cm || null,
+          createdVia: 'ai',
+          dbMatchedFields: JSON.stringify(lockedFields),
+        };
+        console.log(`[identify] Local DB match for ${top!.scientific_name!}, locked fields: ${lockedFields.join(', ')}`);
+      } else {
+        insertValues = {
+          scientificName: top!.scientific_name!,
+          chineseName: top!.chinese_name ?? null,
+          englishName: top!.english_name ?? null,
+          orderName: top!.order_name ?? null,
+          familyName: top!.family_name ?? null,
+          genus: top!.genus ?? null,
+          conservation: top!.conservation ?? null,
+          bodyLengthCm: top!.body_length_cm ?? null,
+          createdVia: 'ai',
+        };
+      }
+
+      const inserted = db.insert(schema.species).values(insertValues).returning({ id: schema.species.id }).get();
       speciesId = inserted.id;
       addAliasesForSpecies(speciesId, top!.chinese_name ?? null);
       await tryGenerateDescription(speciesId, top!.scientific_name!, top!.chinese_name ?? '');
