@@ -30,8 +30,9 @@ function loadBirdsDB(): BirdsDB {
   return JSON.parse(raw) as BirdsDB;
 }
 
-function fuzzyMatch(text: string, pattern: string): boolean {
+function fuzzyMatch(text: string | null | undefined, pattern: string): boolean {
   if (!pattern) return true;
+  if (!text) return false;
   const t = text.toLowerCase();
   const p = pattern.toLowerCase();
   if (t.includes(p)) return true;
