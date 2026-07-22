@@ -104,6 +104,7 @@ export function BirdsDB() {
                   dataIndex: 'conservation',
                   width: 100,
                   render: (v) => {
+                    if (!v) return <Tag>未知</Tag>;
                     const color = v.includes('CR') ? 'red' : v.includes('EN') ? 'orange' : v.includes('VU') ? 'gold' : 'green';
                     return <Tag color={color}>{v}</Tag>;
                   },
@@ -127,7 +128,7 @@ export function BirdsDB() {
             <div><b>英文名：</b>{selectedBird.englishName}</div>
             <div><b>分类：</b>{selectedBird.orderName} &gt; {selectedBird.familyName} &gt; {selectedBird.genus}</div>
             <div><b>体长：</b>{selectedBird.bodyLengthCm} cm</div>
-            <div><b>保护级别：</b><Tag color={selectedBird.conservation.includes('CR') ? 'red' : selectedBird.conservation.includes('EN') ? 'orange' : selectedBird.conservation.includes('VU') ? 'gold' : 'green'}>{selectedBird.conservation}</Tag></div>
+            <div><b>保护级别：</b>{selectedBird.conservation ? <Tag color={selectedBird.conservation.includes('CR') ? 'red' : selectedBird.conservation.includes('EN') ? 'orange' : selectedBird.conservation.includes('VU') ? 'gold' : 'green'}>{selectedBird.conservation}</Tag> : '未知'}</div>
           </div>
         </Modal>
       )}
