@@ -35,8 +35,7 @@ function fuzzyMatch(text: string | null | undefined, pattern: string): boolean {
   if (!text) return false;
   const t = text.toLowerCase();
   const p = pattern.toLowerCase();
-  if (t.includes(p)) return true;
-  return p.split('').every((c) => t.includes(c));
+  return t.includes(p);
 }
 
 export async function birdsRoutes(app: FastifyInstance) {
