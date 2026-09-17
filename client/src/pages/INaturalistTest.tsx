@@ -346,7 +346,7 @@ export function INaturalistTest() {
                       title={
                         <Space>
                           <Tag color="blue">#{c.rank}</Tag>
-                          <span style={{ fontWeight: 'bold' }}>{c.common_name || c.scientific_name}</span>
+                          <span style={{ fontWeight: 'bold' }}>{c.chinese_name || c.english_name || c.scientific_name}</span>
                           <Tag color={confidenceColor(c.confidence)}>
                             {(c.confidence * 100).toFixed(1)}%
                           </Tag>
