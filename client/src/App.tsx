@@ -12,6 +12,7 @@ import { SpeciesList } from './pages/SpeciesList';
 import { SpeciesDetail } from './pages/SpeciesDetail';
 import { Stats } from './pages/Stats';
 import { BirdsDB } from './pages/BirdsDB';
+import { INaturalistTest } from './pages/INaturalistTest';
 import { Users } from './pages/admin/Users';
 import { AISettings } from './pages/admin/AISettings';
 import { useAuth } from './stores/auth';
@@ -62,6 +63,7 @@ function App() {
           <Route path="/species/:id" element={<SpeciesDetail />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/birds-db" element={<BirdsDB />} />
+          <Route path="/inaturalist-test" element={<INaturalistTest />} />
 
           <Route path="/admin/users" element={<RequireAdmin><Users /></RequireAdmin>} />
           <Route path="/admin/ai" element={<RequireAdmin><AISettings /></RequireAdmin>} />

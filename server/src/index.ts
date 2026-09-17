@@ -15,6 +15,7 @@ import { speciesRoutes } from './routes/species.js';
 import { settingsRoutes } from './routes/settings.js';
 import { statsRoutes } from './routes/stats.js';
 import { birdsRoutes } from './routes/birds.js';
+import { inaturalistTestRoutes } from './routes/inaturalist.js';
 import { db, schema } from './db/client.js';
 import { eq } from 'drizzle-orm';
 import { startTaskWorker, stopTaskWorker } from './services/task-worker.js';
@@ -109,6 +110,7 @@ export async function buildApp() {
   await app.register(settingsRoutes);
   await app.register(statsRoutes);
   await app.register(birdsRoutes);
+  await app.register(inaturalistTestRoutes);
 
   app.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith('/api/')) {

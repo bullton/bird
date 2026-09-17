@@ -24,6 +24,7 @@ export function Layout() {
     { key: '/species', icon: <Bird size={16} />, label: <Link to="/species">我的图鉴</Link> },
     { key: '/stats', icon: <BarChart3 size={16} />, label: <Link to="/stats">统计</Link> },
     { key: '/birds-db', icon: <BookOpen size={16} />, label: <Link to="/birds-db">鸟类数据库</Link> },
+    { key: '/inaturalist-test', icon: <Bird size={16} />, label: <Link to="/inaturalist-test">iNat 测试</Link> },
   ];
 
   const adminItems = [
