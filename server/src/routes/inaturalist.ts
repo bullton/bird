@@ -1,6 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import { callINaturalist, fetchTaxonDetails, type INatResult } from '../services/inaturalist-client.js';
+import { db, schema } from '../db/client.js';
+import { eq } from 'drizzle-orm';
+import { decrypt, isEncrypted } from '../utils/crypto.js';
+
+function loadINatToken(): string {
+  const row = db.select({ value: schema.settings.value })
+    .from(schema.settings)
+    .where(eq(schema.settings.key, 'inat_api_token'))
+    .get();
+  const raw = row?.value ?? process.env.INAT_API_TOKEN ?? '';
+  if (!raw) return '';
+  return isEncrypted(raw) ? decrypt(raw) : raw;
+}
 
 interface CropOptions {
   x: number;
@@ -216,9 +229,16 @@ export async function inaturalistTestRoutes(app: FastifyInstance) {
     // 2. 调用 iNaturalist API
     let inatResults: INatResult[];
     try {
+      const apiToken = loadINatToken();
+      if (!apiToken) {
+        return reply.code(503).send({
+          error: 'iNaturalist API token 未配置。请到管理后台 → 系统设置 填写 inat_api_token（也可通过环境变量 INAT_API_TOKEN 设置）',
+        });
+      }
       inatResults = await callINaturalist(cropResult.buffer, {
         lat,
         lng,
+        apiToken,
       });
     } catch (err: any) {
       return reply.code(502).send({
@@ -280,15 +300,24 @@ export async function inaturalistTestRoutes(app: FastifyInstance) {
    * 获取 iNaturalist 客户端信息（用于前端展示）
    */
   app.get('/api/inaturalist/test/info', async () => {
+    const token = loadINatToken();
     return {
       api: 'iNaturalist Computer Vision',
       url: 'https://api.inaturalist.org/v1/computervision/score_image',
       pricing: 'Free, rate limited (~60 req/min)',
+      authRequired: true,
+      tokenConfigured: token.length > 0,
+      tokenSource: process.env.INAT_API_TOKEN ? 'env' : (db.select({ value: schema.settings.value }).from(schema.settings).where(eq(schema.settings.key, 'inat_api_token')).get() ? 'settings' : 'none'),
       features: {
         taxonomy: 'Top-3 candidates include order/family/genus',
         geography: 'Optional lat/lng for improved accuracy',
         conservation: 'Returns IUCN status if available',
         photo: 'Returns default taxon photo URL',
+      },
+      getTokenInstructions: {
+        step1: '在 https://www.inaturalist.org/users/api_token 复制你的 JWT token',
+        step2: '在 管理后台 → 系统设置 中添加 inat_api_token 配置项',
+        step3: '或设置环境变量 INAT_API_TOKEN',
       },
     };
   });

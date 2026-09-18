@@ -69,6 +69,8 @@ export interface CallOptions {
   observed_on?: string;
   /** GeoNames place_id（可选，可提升地理加权准确度） */
   place_id?: number;
+  /** iNaturalist JWT token (必需 - iNaturalist vision API 需要认证) */
+  apiToken?: string;
 }
 
 const API_URL = 'https://api.inaturalist.org/v1/computervision/score_image';
@@ -141,12 +143,20 @@ export async function callINaturalist(
     data: imageBuffer,
   });
 
+  // JWT token 必须（iNaturalist vision API 需要认证）
+  const apiToken = options.apiToken;
+  if (!apiToken) {
+    throw new Error('iNaturalist API token 未配置。请在系统设置中填写 (ai_api_token) 或环境变量 INAT_API_TOKEN');
+  }
+
   const res = await fetch(API_URL, {
     method: 'POST',
     body,
     headers: {
       'Content-Type': contentType,
       'Content-Length': String(body.length),
+      'Authorization': `Bearer ${apiToken}`,
+      'User-Agent': 'BirdLog/1.0 (https://github.com/bullton/bird)',
     },
   });
 
