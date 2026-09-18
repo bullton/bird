@@ -16,9 +16,12 @@ import {
   Col,
   Descriptions,
   Tooltip,
+  Select,
 } from 'antd';
 import { UploadOutlined, CameraOutlined, ScissorOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
 import { Bird, MapPin, AlertCircle } from 'lucide-react';
+import { geoApi } from '../api';
 
 interface Candidate {
   rank: number;
@@ -80,6 +83,20 @@ export function INaturalistTest() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: cities } = useQuery({
+    queryKey: ['geo', 'china-cities'],
+    queryFn: geoApi.chinaCities,
+  });
+
+  const cityOptions = cities
+    ? Array.from(new Set(cities.map((c) => c.province))).map((province) => ({
+        label: province,
+        options: cities
+          .filter((c) => c.province === province)
+          .map((c) => ({ label: c.city, value: `${c.lat},${c.lng}`, lat: c.lat, lng: c.lng })),
+      }))
+    : [];
 
   const handleFileSelect = (file: File | null) => {
     setError(null);
@@ -250,36 +267,55 @@ export function INaturalistTest() {
                       checked={useGeo}
                       onChange={(v) => {
                         setUseGeo(v);
-                        if (v) getGeo();
+                        if (v && !lat) getGeo();
                       }}
                     />
                     <Button size="small" onClick={getGeo}>
-                      获取
+                      GPS
                     </Button>
                   </Space>
                 </div>
                 {useGeo && (
-                  <Space>
-                    <span>lat:</span>
-                    <Slider
-                      min={-90}
-                      max={90}
-                      step={0.01}
-                      value={lat ?? 0}
-                      onChange={(v) => setLat(v)}
-                      style={{ width: 120 }}
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Select
+                      placeholder="选择城市（提高识别准确率）"
+                      allowClear
+                      style={{ width: '100%' }}
+                      showSearch
+                      filterOption={(input, option) =>
+                        (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+                      }
+                      options={cityOptions}
+                      onChange={(val) => {
+                        if (val) {
+                          const [latVal, lngVal] = val.split(',');
+                          setLat(parseFloat(latVal));
+                          setLng(parseFloat(lngVal));
+                        }
+                      }}
                     />
-                    <span style={{ minWidth: 60 }}>{lat?.toFixed(2) ?? '-'}</span>
-                    <span>lng:</span>
-                    <Slider
-                      min={-180}
-                      max={180}
-                      step={0.01}
-                      value={lng ?? 0}
-                      onChange={(v) => setLng(v)}
-                      style={{ width: 120 }}
-                    />
-                    <span style={{ minWidth: 60 }}>{lng?.toFixed(2) ?? '-'}</span>
+                    <Space>
+                      <span>lat:</span>
+                      <Slider
+                        min={-90}
+                        max={90}
+                        step={0.01}
+                        value={lat ?? 0}
+                        onChange={(v) => setLat(v)}
+                        style={{ width: 120 }}
+                      />
+                      <span style={{ minWidth: 60 }}>{lat?.toFixed(2) ?? '-'}</span>
+                      <span>lng:</span>
+                      <Slider
+                        min={-180}
+                        max={180}
+                        step={0.01}
+                        value={lng ?? 0}
+                        onChange={(v) => setLng(v)}
+                        style={{ width: 120 }}
+                      />
+                      <span style={{ minWidth: 60 }}>{lng?.toFixed(2) ?? '-'}</span>
+                    </Space>
                   </Space>
                 )}
               </div>

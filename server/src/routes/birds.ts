@@ -138,4 +138,9 @@ export async function birdsRoutes(app: FastifyInstance) {
     for (const b of db.species) set.add(b.orderName);
     return Array.from(set).sort();
   });
+
+  app.get('/api/geo/china-cities', async () => {
+    const data = JSON.parse(readFileSync(resolve(projectRoot, 'server', 'data', 'china_cities_location.json'), 'utf-8'));
+    return data;
+  });
 }

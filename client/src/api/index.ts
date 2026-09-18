@@ -114,3 +114,14 @@ export const birdsDbApi = {
   families: () => get<Array<{ familyName: string; orderName: string; count: number }>>('/api/birds-db/families'),
   orders: () => get<string[]>('/api/birds-db/orders'),
 };
+
+export interface ChinaCity {
+  province: string;
+  city: string;
+  lat: number;
+  lng: number;
+}
+
+export const geoApi = {
+  chinaCities: () => get<ChinaCity[]>('/api/geo/china-cities'),
+};
