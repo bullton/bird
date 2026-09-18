@@ -50,3 +50,26 @@ backups/
 deploy*.py
 deploy*.bat
 deploy*.sh
+
+# temp debug scripts (root)
+check-*.mjs
+check_*.py
+check_*.mjs
+compare_data.py
+expand_*.py
+explore_*.py
+migrate-db.*
+test_*.py
+test_*.ps1
+test_*.sh
+test_*.mjs
+test_*.js
+test_*.txt
+
+# temp debug scripts (server/)
+server/check-*.mjs
+server/test_*.py
+server/test_*.ps1
+server/test_*.sh
+server/migrate-db.*
+server/clean_species.js
