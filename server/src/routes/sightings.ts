@@ -122,7 +122,7 @@ export async function sightingRoutes(app: FastifyInstance) {
         locationSource: processed.exif.lat ? 'exif' : null,
         exifJson: JSON.stringify(processed.exif.raw),
         status: 'pending',
-        aiProvider: 'minimax',
+        aiProvider: 'inaturalist',
       }).returning({ id: schema.sightings.id }).get();
 
       db.insert(schema.taskQueue).values({

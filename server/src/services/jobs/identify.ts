@@ -3,9 +3,11 @@ import path from 'node:path';
 import { db, schema } from '../../db/client.js';
 import { eq, or, like } from 'drizzle-orm';
 import { config } from '../../config.js';
-import { callIdentify, callGenerateDescription } from '../ai-client.js';
+import { identifyImage } from '../inaturalist-client.js';
+import { callGenerateDescription } from '../ai-client.js';
 import type { Candidate } from '../ai-client.js';
 import { findLocalBirdBySciOrChinese, getLockedFieldsFromLocalBird, type LockableField } from '../local-bird-db.js';
+import { decrypt, isEncrypted } from '../../utils/crypto.js';
 
 export async function cleanupAiImage(sightingId: number) {
   const row = db.select({ pathAi: schema.sightings.pathAi })
@@ -87,9 +89,18 @@ export async function processIdentify(sightingId: number, _taskId: number) {
   const imageAbs = path.resolve(config.photosDir, relPath);
   const buffer = await readFile(imageAbs);
 
-  const result = await callIdentify(buffer, {
-    takenAt: sighting.takenAt ?? undefined,
-    locationName: sighting.locationName ?? undefined,
+  const apiToken = (() => {
+    const row = db.select({ value: schema.settings.value }).from(schema.settings).where(eq(schema.settings.key, 'inat_api_token')).get();
+    const raw = row?.value ?? process.env.INAT_API_TOKEN ?? '';
+    if (!raw) throw new Error('iNaturalist API token 未配置');
+    return isEncrypted(raw) ? decrypt(raw) : raw;
+  })();
+
+  const result = await identifyImage(buffer, {
+    lat: sighting.lat ?? undefined,
+    lng: sighting.lng ?? undefined,
+    apiToken,
+    withTaxonomy: true,
   });
 
   let speciesId: number | null = null;
@@ -103,7 +114,7 @@ export async function processIdentify(sightingId: number, _taskId: number) {
     && !invalidNames.includes((top.chinese_name ?? '').toLowerCase());
 
   if (isValidTop) {
-    const matched = findSpeciesByCandidate(top);
+    const matched = findSpeciesByCandidate(top as Candidate);
     if (matched) {
       speciesId = matched.id;
     } else {
@@ -167,7 +178,7 @@ export async function processIdentify(sightingId: number, _taskId: number) {
     speciesId,
     identificationJson: JSON.stringify(result.candidates),
     confidenceMax,
-    aiProvider: 'minimax',
+    aiProvider: 'inaturalist',
     aiModel: result.model,
     aiRequestId: result.requestId,
     status,

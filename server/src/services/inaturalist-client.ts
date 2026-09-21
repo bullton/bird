@@ -2,6 +2,8 @@
 // 文档：https://www.inaturalist.org/pages/api+docs
 // 端点：https://api.inaturalist.org/v1/computervision/score_image
 
+import sharp from 'sharp';
+
 export interface INatTaxon {
   id: number;
   name: string;
@@ -227,4 +229,109 @@ export async function fetchTaxonDetails(taxonId: number): Promise<{
   } catch {
     return null;
   }
+}
+
+export interface IdentifyCandidate {
+  scientific_name: string;
+  chinese_name?: string;
+  english_name?: string;
+  order_name?: string;
+  family_name?: string;
+  genus?: string;
+  conservation?: string;
+  body_length_cm?: number;
+  confidence: number;
+  vision_score?: number;
+  observations_count?: number;
+  photo_url?: string;
+  wikipedia_summary?: string;
+  taxon_id?: number;
+  extinct?: boolean;
+}
+
+export interface IdentifyResult {
+  candidates: IdentifyCandidate[];
+  model: string;
+  requestId: string;
+}
+
+async function smartCropImage(imageBuffer: Buffer, targetSize = 800): Promise<Buffer> {
+  const meta = await sharp(imageBuffer, { failOn: 'none' }).metadata();
+  const w = meta.width ?? 0;
+  const h = meta.height ?? 0;
+  if (!w || !h) throw new Error('INVALID_IMAGE');
+
+  const aspect = w / h;
+  let cropW: number;
+  let cropH: number;
+  if (aspect >= 1) {
+    cropH = h;
+    cropW = Math.round(h * 1);
+  } else {
+    cropW = w;
+    cropH = Math.round(w * 1);
+  }
+  const x = Math.max(0, Math.round((w - cropW) / 2));
+  const y = Math.max(0, Math.round((h - cropH) / 2));
+
+  const out = await sharp(imageBuffer, { failOn: 'none' })
+    .extract({ left: x, top: y, width: Math.min(cropW, w), height: Math.min(cropH, h) })
+    .resize(targetSize, targetSize, { fit: 'cover' })
+    .jpeg({ quality: 90 })
+    .toBuffer();
+
+  return out;
+}
+
+export async function identifyImage(
+  imageBuffer: Buffer,
+  options: CallOptions & { withTaxonomy?: boolean }
+): Promise<IdentifyResult> {
+  const apiToken = options.apiToken;
+  if (!apiToken) {
+    throw new Error('iNaturalist API token 未配置');
+  }
+
+  const cropped = await smartCropImage(imageBuffer);
+
+  const results = await callINaturalist(cropped, options);
+
+  let taxonomyMap: Map<number, { order?: string; family?: string; genus?: string }> = new Map();
+  if (options.withTaxonomy !== false && results.length > 0) {
+    const top = results.slice(0, 3);
+    await Promise.all(
+      top.map(async (r) => {
+        if (!r.taxon_id) return;
+        const details = await fetchTaxonDetails(r.taxon_id);
+        if (details) taxonomyMap.set(r.taxon_id, details);
+      })
+    );
+  }
+
+  const candidates: IdentifyCandidate[] = results.slice(0, 5).map((r) => {
+    const tax = r.taxon_id ? taxonomyMap.get(r.taxon_id) : undefined;
+    return {
+      scientific_name: r.scientific_name,
+      chinese_name: r.common_name,
+      english_name: r.common_name,
+      order_name: tax?.order,
+      family_name: tax?.family,
+      genus: tax?.genus,
+      conservation: r.iucn_status,
+      body_length_cm: undefined,
+      confidence: r.combined_score,
+      vision_score: r.vision_score,
+      observations_count: r.observations_count,
+      photo_url: r.default_photo_url,
+      wikipedia_summary: r.wikipedia_summary,
+      taxon_id: r.taxon_id,
+      extinct: r.extinct,
+    };
+  });
+
+  return {
+    candidates,
+    model: 'iNaturalist CV',
+    requestId: `inat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+  };
 }
