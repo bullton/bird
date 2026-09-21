@@ -124,6 +124,7 @@ const DEFAULT_SETTINGS: Array<[string, string, number]> = [
   ['allow_registration', '1', 0],
   ['upload_max_mb', '30', 0],
   ['site_name', process.env.SITE_NAME || '家庭鸟类图鉴', 0],
+  ['inat_api_token', process.env.INAT_API_TOKEN || '', 1],
 ];
 
 function migrate() {

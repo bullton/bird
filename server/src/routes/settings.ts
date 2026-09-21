@@ -17,6 +17,7 @@ const SETTING_WHITELIST = new Set([
   'allow_registration',
   'upload_max_mb',
   'site_name',
+  'inat_api_token',
 ]);
 
 const updateSettingSchema = z.object({
